@@ -5,7 +5,7 @@ import (
 	"time"
 
 	common "github.com/inter-verse/services/proto/gen"
-	pb "github.com/inter-verse/services/report-service/gen"
+	pb "github.com/inter-verse/services/report-servic./gen"
 	"github.com/inter-verse/services/report-service/internal/models"
 	"github.com/inter-verse/services/report-service/internal/service"
 )
