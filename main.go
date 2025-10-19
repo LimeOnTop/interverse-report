@@ -4,7 +4,7 @@ import (
 	"log"
 	"net"
 
-	pb "github.com/inter-verse/services/report-servic./gen"
+	pb "github.com/inter-verse/services/report-service/gen"
 	"github.com/inter-verse/services/report-service/internal/config"
 	"github.com/inter-verse/services/report-service/internal/database"
 	"github.com/inter-verse/services/report-service/internal/handler"
