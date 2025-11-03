@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/inter-verse/services/report-service/internal/models"
+	"github.com/inter-verse/report-service/internal/models"
 )
 
 type ReportRepository struct {

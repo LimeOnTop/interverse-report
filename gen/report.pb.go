@@ -2,12 +2,11 @@
 // versions:
 // 	protoc-gen-go v1.36.10
 // 	protoc        v6.33.0
-// source: services/report-service/proto/report.proto
+// source: report-service/proto/report.proto
 
-package proto
+package gen
 
 import (
-	common "github.com/inter-verse/services/proto/gen"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -21,6 +20,128 @@ const (
 	// Verify that runtime/protoimpl is sufficiently up-to-date.
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
+
+// Common response wrapper
+type Response struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Response) Reset() {
+	*x = Response{}
+	mi := &file_report_service_proto_report_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Response) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Response) ProtoMessage() {}
+
+func (x *Response) ProtoReflect() protoreflect.Message {
+	mi := &file_report_service_proto_report_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Response.ProtoReflect.Descriptor instead.
+func (*Response) Descriptor() ([]byte, []int) {
+	return file_report_service_proto_report_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *Response) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *Response) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *Response) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+// Pagination
+type Pagination struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Page          int32                  `protobuf:"varint,1,opt,name=page,proto3" json:"page,omitempty"`
+	Limit         int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	Total         int32                  `protobuf:"varint,3,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Pagination) Reset() {
+	*x = Pagination{}
+	mi := &file_report_service_proto_report_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Pagination) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Pagination) ProtoMessage() {}
+
+func (x *Pagination) ProtoReflect() protoreflect.Message {
+	mi := &file_report_service_proto_report_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Pagination.ProtoReflect.Descriptor instead.
+func (*Pagination) Descriptor() ([]byte, []int) {
+	return file_report_service_proto_report_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Pagination) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *Pagination) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *Pagination) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
 
 // Report entity
 type Report struct {
@@ -45,7 +166,7 @@ type Report struct {
 
 func (x *Report) Reset() {
 	*x = Report{}
-	mi := &file_services_report_service_proto_report_proto_msgTypes[0]
+	mi := &file_report_service_proto_report_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -57,7 +178,7 @@ func (x *Report) String() string {
 func (*Report) ProtoMessage() {}
 
 func (x *Report) ProtoReflect() protoreflect.Message {
-	mi := &file_services_report_service_proto_report_proto_msgTypes[0]
+	mi := &file_report_service_proto_report_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -70,7 +191,7 @@ func (x *Report) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Report.ProtoReflect.Descriptor instead.
 func (*Report) Descriptor() ([]byte, []int) {
-	return file_services_report_service_proto_report_proto_rawDescGZIP(), []int{0}
+	return file_report_service_proto_report_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Report) GetId() string {
@@ -191,7 +312,7 @@ type CreateReportRequest struct {
 
 func (x *CreateReportRequest) Reset() {
 	*x = CreateReportRequest{}
-	mi := &file_services_report_service_proto_report_proto_msgTypes[1]
+	mi := &file_report_service_proto_report_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -203,7 +324,7 @@ func (x *CreateReportRequest) String() string {
 func (*CreateReportRequest) ProtoMessage() {}
 
 func (x *CreateReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_services_report_service_proto_report_proto_msgTypes[1]
+	mi := &file_report_service_proto_report_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -216,7 +337,7 @@ func (x *CreateReportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateReportRequest.ProtoReflect.Descriptor instead.
 func (*CreateReportRequest) Descriptor() ([]byte, []int) {
-	return file_services_report_service_proto_report_proto_rawDescGZIP(), []int{1}
+	return file_report_service_proto_report_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *CreateReportRequest) GetInterviewId() string {
@@ -298,7 +419,7 @@ func (x *CreateReportRequest) GetNotes() string {
 
 type CreateReportResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Response      *common.Response       `protobuf:"bytes,1,opt,name=response,proto3" json:"response,omitempty"`
+	Response      *Response              `protobuf:"bytes,1,opt,name=response,proto3" json:"response,omitempty"`
 	Report        *Report                `protobuf:"bytes,2,opt,name=report,proto3" json:"report,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -306,7 +427,7 @@ type CreateReportResponse struct {
 
 func (x *CreateReportResponse) Reset() {
 	*x = CreateReportResponse{}
-	mi := &file_services_report_service_proto_report_proto_msgTypes[2]
+	mi := &file_report_service_proto_report_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -318,7 +439,7 @@ func (x *CreateReportResponse) String() string {
 func (*CreateReportResponse) ProtoMessage() {}
 
 func (x *CreateReportResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_services_report_service_proto_report_proto_msgTypes[2]
+	mi := &file_report_service_proto_report_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -331,10 +452,10 @@ func (x *CreateReportResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateReportResponse.ProtoReflect.Descriptor instead.
 func (*CreateReportResponse) Descriptor() ([]byte, []int) {
-	return file_services_report_service_proto_report_proto_rawDescGZIP(), []int{2}
+	return file_report_service_proto_report_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *CreateReportResponse) GetResponse() *common.Response {
+func (x *CreateReportResponse) GetResponse() *Response {
 	if x != nil {
 		return x.Response
 	}
@@ -358,7 +479,7 @@ type GetReportRequest struct {
 
 func (x *GetReportRequest) Reset() {
 	*x = GetReportRequest{}
-	mi := &file_services_report_service_proto_report_proto_msgTypes[3]
+	mi := &file_report_service_proto_report_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -370,7 +491,7 @@ func (x *GetReportRequest) String() string {
 func (*GetReportRequest) ProtoMessage() {}
 
 func (x *GetReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_services_report_service_proto_report_proto_msgTypes[3]
+	mi := &file_report_service_proto_report_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -383,7 +504,7 @@ func (x *GetReportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetReportRequest.ProtoReflect.Descriptor instead.
 func (*GetReportRequest) Descriptor() ([]byte, []int) {
-	return file_services_report_service_proto_report_proto_rawDescGZIP(), []int{3}
+	return file_report_service_proto_report_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GetReportRequest) GetReportId() string {
@@ -395,7 +516,7 @@ func (x *GetReportRequest) GetReportId() string {
 
 type GetReportResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Response      *common.Response       `protobuf:"bytes,1,opt,name=response,proto3" json:"response,omitempty"`
+	Response      *Response              `protobuf:"bytes,1,opt,name=response,proto3" json:"response,omitempty"`
 	Report        *Report                `protobuf:"bytes,2,opt,name=report,proto3" json:"report,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -403,7 +524,7 @@ type GetReportResponse struct {
 
 func (x *GetReportResponse) Reset() {
 	*x = GetReportResponse{}
-	mi := &file_services_report_service_proto_report_proto_msgTypes[4]
+	mi := &file_report_service_proto_report_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -415,7 +536,7 @@ func (x *GetReportResponse) String() string {
 func (*GetReportResponse) ProtoMessage() {}
 
 func (x *GetReportResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_services_report_service_proto_report_proto_msgTypes[4]
+	mi := &file_report_service_proto_report_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -428,10 +549,10 @@ func (x *GetReportResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetReportResponse.ProtoReflect.Descriptor instead.
 func (*GetReportResponse) Descriptor() ([]byte, []int) {
-	return file_services_report_service_proto_report_proto_rawDescGZIP(), []int{4}
+	return file_report_service_proto_report_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *GetReportResponse) GetResponse() *common.Response {
+func (x *GetReportResponse) GetResponse() *Response {
 	if x != nil {
 		return x.Response
 	}
@@ -463,7 +584,7 @@ type UpdateReportRequest struct {
 
 func (x *UpdateReportRequest) Reset() {
 	*x = UpdateReportRequest{}
-	mi := &file_services_report_service_proto_report_proto_msgTypes[5]
+	mi := &file_report_service_proto_report_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -475,7 +596,7 @@ func (x *UpdateReportRequest) String() string {
 func (*UpdateReportRequest) ProtoMessage() {}
 
 func (x *UpdateReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_services_report_service_proto_report_proto_msgTypes[5]
+	mi := &file_report_service_proto_report_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -488,7 +609,7 @@ func (x *UpdateReportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateReportRequest.ProtoReflect.Descriptor instead.
 func (*UpdateReportRequest) Descriptor() ([]byte, []int) {
-	return file_services_report_service_proto_report_proto_rawDescGZIP(), []int{5}
+	return file_report_service_proto_report_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *UpdateReportRequest) GetReportId() string {
@@ -556,7 +677,7 @@ func (x *UpdateReportRequest) GetNotes() string {
 
 type UpdateReportResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Response      *common.Response       `protobuf:"bytes,1,opt,name=response,proto3" json:"response,omitempty"`
+	Response      *Response              `protobuf:"bytes,1,opt,name=response,proto3" json:"response,omitempty"`
 	Report        *Report                `protobuf:"bytes,2,opt,name=report,proto3" json:"report,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -564,7 +685,7 @@ type UpdateReportResponse struct {
 
 func (x *UpdateReportResponse) Reset() {
 	*x = UpdateReportResponse{}
-	mi := &file_services_report_service_proto_report_proto_msgTypes[6]
+	mi := &file_report_service_proto_report_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -576,7 +697,7 @@ func (x *UpdateReportResponse) String() string {
 func (*UpdateReportResponse) ProtoMessage() {}
 
 func (x *UpdateReportResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_services_report_service_proto_report_proto_msgTypes[6]
+	mi := &file_report_service_proto_report_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -589,10 +710,10 @@ func (x *UpdateReportResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateReportResponse.ProtoReflect.Descriptor instead.
 func (*UpdateReportResponse) Descriptor() ([]byte, []int) {
-	return file_services_report_service_proto_report_proto_rawDescGZIP(), []int{6}
+	return file_report_service_proto_report_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *UpdateReportResponse) GetResponse() *common.Response {
+func (x *UpdateReportResponse) GetResponse() *Response {
 	if x != nil {
 		return x.Response
 	}
@@ -616,7 +737,7 @@ type DeleteReportRequest struct {
 
 func (x *DeleteReportRequest) Reset() {
 	*x = DeleteReportRequest{}
-	mi := &file_services_report_service_proto_report_proto_msgTypes[7]
+	mi := &file_report_service_proto_report_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -628,7 +749,7 @@ func (x *DeleteReportRequest) String() string {
 func (*DeleteReportRequest) ProtoMessage() {}
 
 func (x *DeleteReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_services_report_service_proto_report_proto_msgTypes[7]
+	mi := &file_report_service_proto_report_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -641,7 +762,7 @@ func (x *DeleteReportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteReportRequest.ProtoReflect.Descriptor instead.
 func (*DeleteReportRequest) Descriptor() ([]byte, []int) {
-	return file_services_report_service_proto_report_proto_rawDescGZIP(), []int{7}
+	return file_report_service_proto_report_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *DeleteReportRequest) GetReportId() string {
@@ -655,14 +776,14 @@ func (x *DeleteReportRequest) GetReportId() string {
 type GetReportsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	InterviewerId string                 `protobuf:"bytes,1,opt,name=interviewer_id,json=interviewerId,proto3" json:"interviewer_id,omitempty"`
-	Pagination    *common.Pagination     `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	Pagination    *Pagination            `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetReportsRequest) Reset() {
 	*x = GetReportsRequest{}
-	mi := &file_services_report_service_proto_report_proto_msgTypes[8]
+	mi := &file_report_service_proto_report_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -674,7 +795,7 @@ func (x *GetReportsRequest) String() string {
 func (*GetReportsRequest) ProtoMessage() {}
 
 func (x *GetReportsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_services_report_service_proto_report_proto_msgTypes[8]
+	mi := &file_report_service_proto_report_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -687,7 +808,7 @@ func (x *GetReportsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetReportsRequest.ProtoReflect.Descriptor instead.
 func (*GetReportsRequest) Descriptor() ([]byte, []int) {
-	return file_services_report_service_proto_report_proto_rawDescGZIP(), []int{8}
+	return file_report_service_proto_report_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GetReportsRequest) GetInterviewerId() string {
@@ -697,7 +818,7 @@ func (x *GetReportsRequest) GetInterviewerId() string {
 	return ""
 }
 
-func (x *GetReportsRequest) GetPagination() *common.Pagination {
+func (x *GetReportsRequest) GetPagination() *Pagination {
 	if x != nil {
 		return x.Pagination
 	}
@@ -706,16 +827,16 @@ func (x *GetReportsRequest) GetPagination() *common.Pagination {
 
 type GetReportsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Response      *common.Response       `protobuf:"bytes,1,opt,name=response,proto3" json:"response,omitempty"`
+	Response      *Response              `protobuf:"bytes,1,opt,name=response,proto3" json:"response,omitempty"`
 	Reports       []*Report              `protobuf:"bytes,2,rep,name=reports,proto3" json:"reports,omitempty"`
-	Pagination    *common.Pagination     `protobuf:"bytes,3,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	Pagination    *Pagination            `protobuf:"bytes,3,opt,name=pagination,proto3" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetReportsResponse) Reset() {
 	*x = GetReportsResponse{}
-	mi := &file_services_report_service_proto_report_proto_msgTypes[9]
+	mi := &file_report_service_proto_report_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -727,7 +848,7 @@ func (x *GetReportsResponse) String() string {
 func (*GetReportsResponse) ProtoMessage() {}
 
 func (x *GetReportsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_services_report_service_proto_report_proto_msgTypes[9]
+	mi := &file_report_service_proto_report_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -740,10 +861,10 @@ func (x *GetReportsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetReportsResponse.ProtoReflect.Descriptor instead.
 func (*GetReportsResponse) Descriptor() ([]byte, []int) {
-	return file_services_report_service_proto_report_proto_rawDescGZIP(), []int{9}
+	return file_report_service_proto_report_proto_rawDescGZIP(), []int{11}
 }
 
-func (x *GetReportsResponse) GetResponse() *common.Response {
+func (x *GetReportsResponse) GetResponse() *Response {
 	if x != nil {
 		return x.Response
 	}
@@ -757,18 +878,27 @@ func (x *GetReportsResponse) GetReports() []*Report {
 	return nil
 }
 
-func (x *GetReportsResponse) GetPagination() *common.Pagination {
+func (x *GetReportsResponse) GetPagination() *Pagination {
 	if x != nil {
 		return x.Pagination
 	}
 	return nil
 }
 
-var File_services_report_service_proto_report_proto protoreflect.FileDescriptor
+var File_report_service_proto_report_proto protoreflect.FileDescriptor
 
-const file_services_report_service_proto_report_proto_rawDesc = "" +
+const file_report_service_proto_report_proto_rawDesc = "" +
 	"\n" +
-	"*services/report-service/proto/report.proto\x12\x06report\x1a\x1bservices/proto/common.proto\"\xef\x03\n" +
+	"!report-service/proto/report.proto\x12\x06report\"T\n" +
+	"\bResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12\x14\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\"L\n" +
+	"\n" +
+	"Pagination\x12\x12\n" +
+	"\x04page\x18\x01 \x01(\x05R\x04page\x12\x14\n" +
+	"\x05limit\x18\x02 \x01(\x05R\x05limit\x12\x14\n" +
+	"\x05total\x18\x03 \x01(\x05R\x05total\"\xef\x03\n" +
 	"\x06Report\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
 	"\finterview_id\x18\x02 \x01(\tR\vinterviewId\x12!\n" +
@@ -805,12 +935,12 @@ const file_services_report_service_proto_report_proto_rawDesc = "" +
 	" \x01(\tR\x0frecommendations\x12\x14\n" +
 	"\x05notes\x18\v \x01(\tR\x05notes\"l\n" +
 	"\x14CreateReportResponse\x12,\n" +
-	"\bresponse\x18\x01 \x01(\v2\x10.common.ResponseR\bresponse\x12&\n" +
+	"\bresponse\x18\x01 \x01(\v2\x10.report.ResponseR\bresponse\x12&\n" +
 	"\x06report\x18\x02 \x01(\v2\x0e.report.ReportR\x06report\"/\n" +
 	"\x10GetReportRequest\x12\x1b\n" +
 	"\treport_id\x18\x01 \x01(\tR\breportId\"i\n" +
 	"\x11GetReportResponse\x12,\n" +
-	"\bresponse\x18\x01 \x01(\v2\x10.common.ResponseR\bresponse\x12&\n" +
+	"\bresponse\x18\x01 \x01(\v2\x10.report.ResponseR\bresponse\x12&\n" +
 	"\x06report\x18\x02 \x01(\v2\x0e.report.ReportR\x06report\"\xde\x02\n" +
 	"\x13UpdateReportRequest\x12\x1b\n" +
 	"\treport_id\x18\x01 \x01(\tR\breportId\x12%\n" +
@@ -825,77 +955,77 @@ const file_services_report_service_proto_report_proto_rawDesc = "" +
 	"\x0frecommendations\x18\b \x01(\tR\x0frecommendations\x12\x14\n" +
 	"\x05notes\x18\t \x01(\tR\x05notes\"l\n" +
 	"\x14UpdateReportResponse\x12,\n" +
-	"\bresponse\x18\x01 \x01(\v2\x10.common.ResponseR\bresponse\x12&\n" +
+	"\bresponse\x18\x01 \x01(\v2\x10.report.ResponseR\bresponse\x12&\n" +
 	"\x06report\x18\x02 \x01(\v2\x0e.report.ReportR\x06report\"2\n" +
 	"\x13DeleteReportRequest\x12\x1b\n" +
 	"\treport_id\x18\x01 \x01(\tR\breportId\"n\n" +
 	"\x11GetReportsRequest\x12%\n" +
 	"\x0einterviewer_id\x18\x01 \x01(\tR\rinterviewerId\x122\n" +
 	"\n" +
-	"pagination\x18\x02 \x01(\v2\x12.common.PaginationR\n" +
+	"pagination\x18\x02 \x01(\v2\x12.report.PaginationR\n" +
 	"pagination\"\xa0\x01\n" +
 	"\x12GetReportsResponse\x12,\n" +
-	"\bresponse\x18\x01 \x01(\v2\x10.common.ResponseR\bresponse\x12(\n" +
+	"\bresponse\x18\x01 \x01(\v2\x10.report.ResponseR\bresponse\x12(\n" +
 	"\areports\x18\x02 \x03(\v2\x0e.report.ReportR\areports\x122\n" +
 	"\n" +
-	"pagination\x18\x03 \x01(\v2\x12.common.PaginationR\n" +
+	"pagination\x18\x03 \x01(\v2\x12.report.PaginationR\n" +
 	"pagination2\xeb\x02\n" +
 	"\rReportService\x12I\n" +
 	"\fCreateReport\x12\x1b.report.CreateReportRequest\x1a\x1c.report.CreateReportResponse\x12@\n" +
 	"\tGetReport\x12\x18.report.GetReportRequest\x1a\x19.report.GetReportResponse\x12I\n" +
 	"\fUpdateReport\x12\x1b.report.UpdateReportRequest\x1a\x1c.report.UpdateReportResponse\x12=\n" +
-	"\fDeleteReport\x12\x1b.report.DeleteReportRequest\x1a\x10.common.Response\x12C\n" +
+	"\fDeleteReport\x12\x1b.report.DeleteReportRequest\x1a\x10.report.Response\x12C\n" +
 	"\n" +
-	"GetReports\x12\x19.report.GetReportsRequest\x1a\x1a.report.GetReportsResponseB6Z4github.com/inter-verse/services/report-service/protob\x06proto3"
+	"GetReports\x12\x19.report.GetReportsRequest\x1a\x1a.report.GetReportsResponseB+Z)github.com/inter-verse/report-service/genb\x06proto3"
 
 var (
-	file_services_report_service_proto_report_proto_rawDescOnce sync.Once
-	file_services_report_service_proto_report_proto_rawDescData []byte
+	file_report_service_proto_report_proto_rawDescOnce sync.Once
+	file_report_service_proto_report_proto_rawDescData []byte
 )
 
-func file_services_report_service_proto_report_proto_rawDescGZIP() []byte {
-	file_services_report_service_proto_report_proto_rawDescOnce.Do(func() {
-		file_services_report_service_proto_report_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_services_report_service_proto_report_proto_rawDesc), len(file_services_report_service_proto_report_proto_rawDesc)))
+func file_report_service_proto_report_proto_rawDescGZIP() []byte {
+	file_report_service_proto_report_proto_rawDescOnce.Do(func() {
+		file_report_service_proto_report_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_report_service_proto_report_proto_rawDesc), len(file_report_service_proto_report_proto_rawDesc)))
 	})
-	return file_services_report_service_proto_report_proto_rawDescData
+	return file_report_service_proto_report_proto_rawDescData
 }
 
-var file_services_report_service_proto_report_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
-var file_services_report_service_proto_report_proto_goTypes = []any{
-	(*Report)(nil),               // 0: report.Report
-	(*CreateReportRequest)(nil),  // 1: report.CreateReportRequest
-	(*CreateReportResponse)(nil), // 2: report.CreateReportResponse
-	(*GetReportRequest)(nil),     // 3: report.GetReportRequest
-	(*GetReportResponse)(nil),    // 4: report.GetReportResponse
-	(*UpdateReportRequest)(nil),  // 5: report.UpdateReportRequest
-	(*UpdateReportResponse)(nil), // 6: report.UpdateReportResponse
-	(*DeleteReportRequest)(nil),  // 7: report.DeleteReportRequest
-	(*GetReportsRequest)(nil),    // 8: report.GetReportsRequest
-	(*GetReportsResponse)(nil),   // 9: report.GetReportsResponse
-	(*common.Response)(nil),      // 10: common.Response
-	(*common.Pagination)(nil),    // 11: common.Pagination
+var file_report_service_proto_report_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_report_service_proto_report_proto_goTypes = []any{
+	(*Response)(nil),             // 0: report.Response
+	(*Pagination)(nil),           // 1: report.Pagination
+	(*Report)(nil),               // 2: report.Report
+	(*CreateReportRequest)(nil),  // 3: report.CreateReportRequest
+	(*CreateReportResponse)(nil), // 4: report.CreateReportResponse
+	(*GetReportRequest)(nil),     // 5: report.GetReportRequest
+	(*GetReportResponse)(nil),    // 6: report.GetReportResponse
+	(*UpdateReportRequest)(nil),  // 7: report.UpdateReportRequest
+	(*UpdateReportResponse)(nil), // 8: report.UpdateReportResponse
+	(*DeleteReportRequest)(nil),  // 9: report.DeleteReportRequest
+	(*GetReportsRequest)(nil),    // 10: report.GetReportsRequest
+	(*GetReportsResponse)(nil),   // 11: report.GetReportsResponse
 }
-var file_services_report_service_proto_report_proto_depIdxs = []int32{
-	10, // 0: report.CreateReportResponse.response:type_name -> common.Response
-	0,  // 1: report.CreateReportResponse.report:type_name -> report.Report
-	10, // 2: report.GetReportResponse.response:type_name -> common.Response
-	0,  // 3: report.GetReportResponse.report:type_name -> report.Report
-	10, // 4: report.UpdateReportResponse.response:type_name -> common.Response
-	0,  // 5: report.UpdateReportResponse.report:type_name -> report.Report
-	11, // 6: report.GetReportsRequest.pagination:type_name -> common.Pagination
-	10, // 7: report.GetReportsResponse.response:type_name -> common.Response
-	0,  // 8: report.GetReportsResponse.reports:type_name -> report.Report
-	11, // 9: report.GetReportsResponse.pagination:type_name -> common.Pagination
-	1,  // 10: report.ReportService.CreateReport:input_type -> report.CreateReportRequest
-	3,  // 11: report.ReportService.GetReport:input_type -> report.GetReportRequest
-	5,  // 12: report.ReportService.UpdateReport:input_type -> report.UpdateReportRequest
-	7,  // 13: report.ReportService.DeleteReport:input_type -> report.DeleteReportRequest
-	8,  // 14: report.ReportService.GetReports:input_type -> report.GetReportsRequest
-	2,  // 15: report.ReportService.CreateReport:output_type -> report.CreateReportResponse
-	4,  // 16: report.ReportService.GetReport:output_type -> report.GetReportResponse
-	6,  // 17: report.ReportService.UpdateReport:output_type -> report.UpdateReportResponse
-	10, // 18: report.ReportService.DeleteReport:output_type -> common.Response
-	9,  // 19: report.ReportService.GetReports:output_type -> report.GetReportsResponse
+var file_report_service_proto_report_proto_depIdxs = []int32{
+	0,  // 0: report.CreateReportResponse.response:type_name -> report.Response
+	2,  // 1: report.CreateReportResponse.report:type_name -> report.Report
+	0,  // 2: report.GetReportResponse.response:type_name -> report.Response
+	2,  // 3: report.GetReportResponse.report:type_name -> report.Report
+	0,  // 4: report.UpdateReportResponse.response:type_name -> report.Response
+	2,  // 5: report.UpdateReportResponse.report:type_name -> report.Report
+	1,  // 6: report.GetReportsRequest.pagination:type_name -> report.Pagination
+	0,  // 7: report.GetReportsResponse.response:type_name -> report.Response
+	2,  // 8: report.GetReportsResponse.reports:type_name -> report.Report
+	1,  // 9: report.GetReportsResponse.pagination:type_name -> report.Pagination
+	3,  // 10: report.ReportService.CreateReport:input_type -> report.CreateReportRequest
+	5,  // 11: report.ReportService.GetReport:input_type -> report.GetReportRequest
+	7,  // 12: report.ReportService.UpdateReport:input_type -> report.UpdateReportRequest
+	9,  // 13: report.ReportService.DeleteReport:input_type -> report.DeleteReportRequest
+	10, // 14: report.ReportService.GetReports:input_type -> report.GetReportsRequest
+	4,  // 15: report.ReportService.CreateReport:output_type -> report.CreateReportResponse
+	6,  // 16: report.ReportService.GetReport:output_type -> report.GetReportResponse
+	8,  // 17: report.ReportService.UpdateReport:output_type -> report.UpdateReportResponse
+	0,  // 18: report.ReportService.DeleteReport:output_type -> report.Response
+	11, // 19: report.ReportService.GetReports:output_type -> report.GetReportsResponse
 	15, // [15:20] is the sub-list for method output_type
 	10, // [10:15] is the sub-list for method input_type
 	10, // [10:10] is the sub-list for extension type_name
@@ -903,26 +1033,26 @@ var file_services_report_service_proto_report_proto_depIdxs = []int32{
 	0,  // [0:10] is the sub-list for field type_name
 }
 
-func init() { file_services_report_service_proto_report_proto_init() }
-func file_services_report_service_proto_report_proto_init() {
-	if File_services_report_service_proto_report_proto != nil {
+func init() { file_report_service_proto_report_proto_init() }
+func file_report_service_proto_report_proto_init() {
+	if File_report_service_proto_report_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_services_report_service_proto_report_proto_rawDesc), len(file_services_report_service_proto_report_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_report_service_proto_report_proto_rawDesc), len(file_report_service_proto_report_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_services_report_service_proto_report_proto_goTypes,
-		DependencyIndexes: file_services_report_service_proto_report_proto_depIdxs,
-		MessageInfos:      file_services_report_service_proto_report_proto_msgTypes,
+		GoTypes:           file_report_service_proto_report_proto_goTypes,
+		DependencyIndexes: file_report_service_proto_report_proto_depIdxs,
+		MessageInfos:      file_report_service_proto_report_proto_msgTypes,
 	}.Build()
-	File_services_report_service_proto_report_proto = out.File
-	file_services_report_service_proto_report_proto_goTypes = nil
-	file_services_report_service_proto_report_proto_depIdxs = nil
+	File_report_service_proto_report_proto = out.File
+	file_report_service_proto_report_proto_goTypes = nil
+	file_report_service_proto_report_proto_depIdxs = nil
 }

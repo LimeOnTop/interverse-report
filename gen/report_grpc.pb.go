@@ -2,13 +2,12 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v6.33.0
-// source: services/report-service/proto/report.proto
+// source: report-service/proto/report.proto
 
-package proto
+package gen
 
 import (
 	context "context"
-	common "github.com/inter-verse/services/proto/gen"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -36,7 +35,7 @@ type ReportServiceClient interface {
 	CreateReport(ctx context.Context, in *CreateReportRequest, opts ...grpc.CallOption) (*CreateReportResponse, error)
 	GetReport(ctx context.Context, in *GetReportRequest, opts ...grpc.CallOption) (*GetReportResponse, error)
 	UpdateReport(ctx context.Context, in *UpdateReportRequest, opts ...grpc.CallOption) (*UpdateReportResponse, error)
-	DeleteReport(ctx context.Context, in *DeleteReportRequest, opts ...grpc.CallOption) (*common.Response, error)
+	DeleteReport(ctx context.Context, in *DeleteReportRequest, opts ...grpc.CallOption) (*Response, error)
 	GetReports(ctx context.Context, in *GetReportsRequest, opts ...grpc.CallOption) (*GetReportsResponse, error)
 }
 
@@ -78,9 +77,9 @@ func (c *reportServiceClient) UpdateReport(ctx context.Context, in *UpdateReport
 	return out, nil
 }
 
-func (c *reportServiceClient) DeleteReport(ctx context.Context, in *DeleteReportRequest, opts ...grpc.CallOption) (*common.Response, error) {
+func (c *reportServiceClient) DeleteReport(ctx context.Context, in *DeleteReportRequest, opts ...grpc.CallOption) (*Response, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(common.Response)
+	out := new(Response)
 	err := c.cc.Invoke(ctx, ReportService_DeleteReport_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -107,7 +106,7 @@ type ReportServiceServer interface {
 	CreateReport(context.Context, *CreateReportRequest) (*CreateReportResponse, error)
 	GetReport(context.Context, *GetReportRequest) (*GetReportResponse, error)
 	UpdateReport(context.Context, *UpdateReportRequest) (*UpdateReportResponse, error)
-	DeleteReport(context.Context, *DeleteReportRequest) (*common.Response, error)
+	DeleteReport(context.Context, *DeleteReportRequest) (*Response, error)
 	GetReports(context.Context, *GetReportsRequest) (*GetReportsResponse, error)
 	mustEmbedUnimplementedReportServiceServer()
 }
@@ -128,7 +127,7 @@ func (UnimplementedReportServiceServer) GetReport(context.Context, *GetReportReq
 func (UnimplementedReportServiceServer) UpdateReport(context.Context, *UpdateReportRequest) (*UpdateReportResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateReport not implemented")
 }
-func (UnimplementedReportServiceServer) DeleteReport(context.Context, *DeleteReportRequest) (*common.Response, error) {
+func (UnimplementedReportServiceServer) DeleteReport(context.Context, *DeleteReportRequest) (*Response, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteReport not implemented")
 }
 func (UnimplementedReportServiceServer) GetReports(context.Context, *GetReportsRequest) (*GetReportsResponse, error) {
@@ -274,5 +273,5 @@ var ReportService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "services/report-service/proto/report.proto",
+	Metadata: "report-service/proto/report.proto",
 }

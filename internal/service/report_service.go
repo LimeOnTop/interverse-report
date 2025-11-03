@@ -3,8 +3,8 @@ package service
 import (
 	"fmt"
 
-	"github.com/inter-verse/services/report-service/internal/models"
-	"github.com/inter-verse/services/report-service/internal/repository"
+	"github.com/inter-verse/report-service/internal/models"
+	"github.com/inter-verse/report-service/internal/repository"
 )
 
 type ReportService struct {

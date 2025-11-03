@@ -4,10 +4,9 @@ import (
 	"context"
 	"time"
 
-	common "github.com/inter-verse/services/proto/gen"
-	pb "github.com/inter-verse/services/report-service/gen"
-	"github.com/inter-verse/services/report-service/internal/models"
-	"github.com/inter-verse/services/report-service/internal/service"
+	pb "github.com/inter-verse/report-service/gen"
+	"github.com/inter-verse/report-service/internal/models"
+	"github.com/inter-verse/report-service/internal/service"
 )
 
 type ReportHandler struct {
@@ -39,7 +38,7 @@ func (h *ReportHandler) CreateReport(ctx context.Context, req *pb.CreateReportRe
 	createdReport, err := h.reportService.CreateReport(report)
 	if err != nil {
 		return &pb.CreateReportResponse{
-			Response: &common.Response{
+			Response: &pb.Response{
 				Success: false,
 				Error:   err.Error(),
 			},
@@ -47,7 +46,7 @@ func (h *ReportHandler) CreateReport(ctx context.Context, req *pb.CreateReportRe
 	}
 
 	return &pb.CreateReportResponse{
-		Response: &common.Response{
+		Response: &pb.Response{
 			Success: true,
 			Message: "Report created successfully",
 		},
@@ -74,7 +73,7 @@ func (h *ReportHandler) GetReport(ctx context.Context, req *pb.GetReportRequest)
 	report, err := h.reportService.GetReportByID(req.ReportId)
 	if err != nil {
 		return &pb.GetReportResponse{
-			Response: &common.Response{
+			Response: &pb.Response{
 				Success: false,
 				Error:   err.Error(),
 			},
@@ -82,7 +81,7 @@ func (h *ReportHandler) GetReport(ctx context.Context, req *pb.GetReportRequest)
 	}
 
 	return &pb.GetReportResponse{
-		Response: &common.Response{
+		Response: &pb.Response{
 			Success: true,
 		},
 		Report: &pb.Report{
@@ -116,7 +115,7 @@ func (h *ReportHandler) GetReports(ctx context.Context, req *pb.GetReportsReques
 	reports, err := h.reportService.GetReportsByInterviewer(req.InterviewerId, limit, offset)
 	if err != nil {
 		return &pb.GetReportsResponse{
-			Response: &common.Response{
+			Response: &pb.Response{
 				Success: false,
 				Error:   err.Error(),
 			},
@@ -144,11 +143,11 @@ func (h *ReportHandler) GetReports(ctx context.Context, req *pb.GetReportsReques
 	}
 
 	return &pb.GetReportsResponse{
-		Response: &common.Response{
+		Response: &pb.Response{
 			Success: true,
 		},
 		Reports: pbReports,
-		Pagination: &common.Pagination{
+		Pagination: &pb.Pagination{
 			Page:  req.Pagination.Page,
 			Limit: req.Pagination.Limit,
 			Total: int32(len(pbReports)),
@@ -172,7 +171,7 @@ func (h *ReportHandler) UpdateReport(ctx context.Context, req *pb.UpdateReportRe
 	updatedReport, err := h.reportService.UpdateReport(report)
 	if err != nil {
 		return &pb.UpdateReportResponse{
-			Response: &common.Response{
+			Response: &pb.Response{
 				Success: false,
 				Error:   err.Error(),
 			},
@@ -180,7 +179,7 @@ func (h *ReportHandler) UpdateReport(ctx context.Context, req *pb.UpdateReportRe
 	}
 
 	return &pb.UpdateReportResponse{
-		Response: &common.Response{
+		Response: &pb.Response{
 			Success: true,
 			Message: "Report updated successfully",
 		},
@@ -203,16 +202,16 @@ func (h *ReportHandler) UpdateReport(ctx context.Context, req *pb.UpdateReportRe
 	}, nil
 }
 
-func (h *ReportHandler) DeleteReport(ctx context.Context, req *pb.DeleteReportRequest) (*common.Response, error) {
+func (h *ReportHandler) DeleteReport(ctx context.Context, req *pb.DeleteReportRequest) (*pb.Response, error) {
 	err := h.reportService.DeleteReport(req.ReportId)
 	if err != nil {
-		return &common.Response{
+		return &pb.Response{
 			Success: false,
 			Error:   err.Error(),
 		}, nil
 	}
 
-	return &common.Response{
+	return &pb.Response{
 		Success: true,
 		Message: "Report deleted successfully",
 	}, nil
