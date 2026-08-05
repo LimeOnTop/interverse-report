@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	pb "github.com/LimeOnTop/interverse-report/gen"
+	pb "github.com/LimeOnTop/interverse-contracts/report/gen"
 	"github.com/LimeOnTop/interverse-report/internal/models"
 	"github.com/LimeOnTop/interverse-report/internal/service"
 )
