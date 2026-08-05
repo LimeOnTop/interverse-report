@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/inter-verse/report-service/internal/models"
+	"github.com/LimeOnTop/interverse-report/internal/models"
 )
 
 type ReportRepository struct {

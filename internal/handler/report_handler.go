@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	pb "github.com/inter-verse/report-service/gen"
-	"github.com/inter-verse/report-service/internal/models"
-	"github.com/inter-verse/report-service/internal/service"
+	pb "github.com/LimeOnTop/interverse-report/gen"
+	"github.com/LimeOnTop/interverse-report/internal/models"
+	"github.com/LimeOnTop/interverse-report/internal/service"
 )
 
 type ReportHandler struct {

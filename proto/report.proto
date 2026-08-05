@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package report;
 
-option go_package = "github.com/inter-verse/report-service/gen";
+option go_package = "github.com/LimeOnTop/interverse-report/gen";
 
 // Common response wrapper
 message Response {

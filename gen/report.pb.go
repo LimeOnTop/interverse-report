@@ -976,7 +976,7 @@ const file_report_service_proto_report_proto_rawDesc = "" +
 	"\fUpdateReport\x12\x1b.report.UpdateReportRequest\x1a\x1c.report.UpdateReportResponse\x12=\n" +
 	"\fDeleteReport\x12\x1b.report.DeleteReportRequest\x1a\x10.report.Response\x12C\n" +
 	"\n" +
-	"GetReports\x12\x19.report.GetReportsRequest\x1a\x1a.report.GetReportsResponseB+Z)github.com/inter-verse/report-service/genb\x06proto3"
+	"GetReports\x12\x19.report.GetReportsRequest\x1a\x1a.report.GetReportsResponseB+Z)github.com/LimeOnTop/interverse-report/genb\x06proto3"
 
 var (
 	file_report_service_proto_report_proto_rawDescOnce sync.Once

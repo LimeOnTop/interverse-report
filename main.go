@@ -4,12 +4,12 @@ import (
 	"log"
 	"net"
 
-	pb "github.com/inter-verse/report-service/gen"
-	"github.com/inter-verse/report-service/internal/config"
-	"github.com/inter-verse/report-service/internal/database"
-	"github.com/inter-verse/report-service/internal/handler"
-	"github.com/inter-verse/report-service/internal/repository"
-	"github.com/inter-verse/report-service/internal/service"
+	pb "github.com/LimeOnTop/interverse-report/gen"
+	"github.com/LimeOnTop/interverse-report/internal/config"
+	"github.com/LimeOnTop/interverse-report/internal/database"
+	"github.com/LimeOnTop/interverse-report/internal/handler"
+	"github.com/LimeOnTop/interverse-report/internal/repository"
+	"github.com/LimeOnTop/interverse-report/internal/service"
 	"google.golang.org/grpc"
 )
 

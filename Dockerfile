@@ -8,13 +8,13 @@ RUN apk add --no-cache git
 
 # Copy go mod files
 # Copy gen directory for local modules
-COPY report-service/gen/ ./gen/
+COPY interverse-report/gen/ ./gen/
 
-COPY report-service/go.mod report-service/go.sum ./
+COPY interverse-report/go.mod interverse-report/go.sum ./
 RUN go mod download
 
 # Copy source code
-COPY report-service/ ./
+COPY interverse-report/ ./
 
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o report-service .
