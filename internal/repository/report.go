@@ -45,6 +45,33 @@ func (r *ReportRepository) Create(ctx context.Context, report entity.Report) (en
 	return report, nil
 }
 
+func (r *ReportRepository) GetByInterviewID(ctx context.Context, interviewID string) (entity.Report, error) {
+	query := `
+		SELECT id, interview_id, candidate_id, interviewer_id,
+		       overall_rating, technical_skills, communication_skills, problem_solving,
+		       strengths, weaknesses, recommendations, notes, created_at, updated_at
+		FROM reports WHERE interview_id = $1
+		ORDER BY created_at DESC
+		LIMIT 1
+	`
+
+	var report entity.Report
+	err := r.db.QueryRowContext(ctx, query, interviewID).Scan(
+		&report.ID, &report.InterviewID, &report.CandidateID, &report.InterviewerID,
+		&report.OverallRating, &report.TechnicalSkills, &report.CommunicationSkills,
+		&report.ProblemSolving, &report.Strengths, &report.Weaknesses,
+		&report.Recommendations, &report.Notes, &report.CreatedAt, &report.UpdatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return entity.Report{}, fmt.Errorf("get report by interview: not found")
+		}
+		return entity.Report{}, fmt.Errorf("get report by interview: %w", err)
+	}
+
+	return report, nil
+}
+
 func (r *ReportRepository) GetByID(ctx context.Context, id string) (entity.Report, error) {
 	query := `
 		SELECT id, interview_id, candidate_id, interviewer_id,

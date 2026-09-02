@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/LimeOnTop/interverse-report/cmd/config"
+	"github.com/LimeOnTop/interverse-report/internal/client"
 	"github.com/LimeOnTop/interverse-report/internal/controller"
 	"github.com/LimeOnTop/interverse-report/internal/repository"
 	"github.com/LimeOnTop/interverse-report/internal/service"
@@ -42,7 +43,20 @@ func main() {
 
 	reportRepository := repository.NewReportRepository(db)
 	reportService := service.NewReportService(reportRepository)
-	reportController := controller.NewReportController(reportService)
+
+	interviewClient, err := client.NewInterviewClient(cfg.InterviewServiceURL)
+	if err != nil {
+		panic("interview client: " + err.Error())
+	}
+
+	questionClient, err := client.NewQuestionClient(cfg.QuestionServiceURL)
+	if err != nil {
+		panic("question client: " + err.Error())
+	}
+
+	geminiClient := client.NewGeminiClient(cfg.GeminiAPIKey, cfg.GeminiModel)
+	analysisService := service.NewAnalysisService(reportRepository, interviewClient, questionClient, geminiClient)
+	reportController := controller.NewReportController(reportService, analysisService)
 
 	lis, err := net.Listen("tcp", net.JoinHostPort("", cfg.Port))
 	if err != nil {

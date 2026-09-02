@@ -1,0 +1,119 @@
+package client
+
+import (
+	"context"
+	"fmt"
+
+	interviewpb "github.com/LimeOnTop/interverse-contracts/interview/gen"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+)
+
+type SessionItem struct {
+	ID         string
+	QuestionID string
+	ItemType   string
+	SortOrder  int32
+	Text       string
+	Technology string
+	Difficulty string
+	Category   string
+	Options    []string
+}
+
+type InterviewSummary struct {
+	ID             string
+	UserID         string
+	Title          string
+	Description    string
+	Status         string
+	ScheduledAt    string
+	Level          string
+	Specialization string
+}
+
+type InterviewClient struct {
+	client interviewpb.InterviewServiceClient
+}
+
+func NewInterviewClient(interviewServiceURL string) (*InterviewClient, error) {
+	conn, err := grpc.NewClient(interviewServiceURL, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, fmt.Errorf("connect to interview service: %w", err)
+	}
+
+	return &InterviewClient{
+		client: interviewpb.NewInterviewServiceClient(conn),
+	}, nil
+}
+
+func (c *InterviewClient) GetSessionContent(ctx context.Context, interviewID, userID string) (InterviewSummary, []SessionItem, []SessionItem, error) {
+	resp, err := c.client.GetSessionContent(ctx, &interviewpb.GetSessionContentRequest{
+		InterviewId: interviewID,
+		UserId:      userID,
+	})
+	if err != nil {
+		return InterviewSummary{}, nil, nil, fmt.Errorf("get session content: %w", err)
+	}
+
+	if resp.Response != nil && !resp.Response.Success {
+		return InterviewSummary{}, nil, nil, fmt.Errorf("get session content: %s", resp.Response.Error)
+	}
+
+	interview := resp.GetInterview()
+	if interview == nil {
+		return InterviewSummary{}, nil, nil, fmt.Errorf("get session content: empty interview")
+	}
+
+	summary := InterviewSummary{
+		ID:             interview.GetId(),
+		UserID:         interview.GetUserId(),
+		Title:          interview.GetTitle(),
+		Description:    interview.GetDescription(),
+		Status:         interview.GetStatus(),
+		ScheduledAt:    interview.GetScheduledAt(),
+		Level:          interview.GetLevel(),
+		Specialization: interview.GetSpecialization(),
+	}
+
+	return summary, mapSessionItems(resp.GetQuestions()), mapSessionItems(resp.GetTasks()), nil
+}
+
+func (c *InterviewClient) CompleteInterview(ctx context.Context, interview InterviewSummary) error {
+	resp, err := c.client.UpdateInterview(ctx, &interviewpb.UpdateInterviewRequest{
+		InterviewId:    interview.ID,
+		Title:          interview.Title,
+		Description:    interview.Description,
+		Status:         "completed",
+		ScheduledAt:    interview.ScheduledAt,
+		Level:          interview.Level,
+		Specialization: interview.Specialization,
+	})
+	if err != nil {
+		return fmt.Errorf("complete interview: %w", err)
+	}
+
+	if resp.Response != nil && !resp.Response.Success {
+		return fmt.Errorf("complete interview: %s", resp.Response.Error)
+	}
+
+	return nil
+}
+
+func mapSessionItems(items []*interviewpb.SessionItem) []SessionItem {
+	result := make([]SessionItem, 0, len(items))
+	for _, item := range items {
+		result = append(result, SessionItem{
+			ID:         item.GetId(),
+			QuestionID: item.GetQuestionId(),
+			ItemType:   item.GetItemType(),
+			SortOrder:  item.GetSortOrder(),
+			Text:       item.GetText(),
+			Technology: item.GetTechnology(),
+			Difficulty: item.GetDifficulty(),
+			Category:   item.GetCategory(),
+			Options:    item.GetOptions(),
+		})
+	}
+	return result
+}

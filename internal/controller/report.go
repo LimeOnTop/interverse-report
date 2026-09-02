@@ -7,17 +7,22 @@ import (
 	"time"
 
 	"github.com/LimeOnTop/interverse-report/internal/entity"
+	"github.com/LimeOnTop/interverse-report/internal/service"
 	"github.com/LimeOnTop/interverse-report/internal/usecase"
 	pb "github.com/LimeOnTop/interverse-contracts/report/gen"
 )
 
 type ReportController struct {
 	pb.UnimplementedReportServiceServer
-	report usecase.Report
+	report   usecase.Report
+	analysis *service.AnalysisService
 }
 
-func NewReportController(report usecase.Report) *ReportController {
-	return &ReportController{report: report}
+func NewReportController(report usecase.Report, analysis *service.AnalysisService) *ReportController {
+	return &ReportController{
+		report:   report,
+		analysis: analysis,
+	}
 }
 
 func (c *ReportController) CreateReport(ctx context.Context, req *pb.CreateReportRequest) (*pb.CreateReportResponse, error) {
@@ -52,6 +57,52 @@ func (c *ReportController) CreateReport(ctx context.Context, req *pb.CreateRepor
 			Message: "Report created successfully",
 		},
 		Report: toProtoReport(created),
+	}, nil
+}
+
+func (c *ReportController) GenerateReport(ctx context.Context, req *pb.GenerateReportRequest) (*pb.GenerateReportResponse, error) {
+	answers := make([]service.AnswerInput, 0, len(req.GetAnswers()))
+	for _, answer := range req.GetAnswers() {
+		input := service.AnswerInput{
+			StepID:     answer.GetStepId(),
+			QuestionID: answer.GetQuestionId(),
+			ItemType:   answer.GetItemType(),
+			TaskAnswer: answer.GetTaskAnswer(),
+		}
+		if answer.GetItemType() == "question" {
+			selected := answer.GetSelectedOptionIndex()
+			input.SelectedOptionIndex = &selected
+		}
+		answers = append(answers, input)
+	}
+
+	created, scores, err := c.analysis.Generate(ctx, req.GetInterviewId(), req.GetUserId(), answers)
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return nil, fmt.Errorf("context canceled: %w", err)
+		}
+		return &pb.GenerateReportResponse{
+			Response: &pb.Response{
+				Success: false,
+				Error:   err.Error(),
+			},
+		}, nil
+	}
+
+	return &pb.GenerateReportResponse{
+		Response: &pb.Response{
+			Success: true,
+			Message: "Report generated successfully",
+		},
+		Report: toProtoReport(created),
+		Scores: &pb.AnalysisScores{
+			OverallScore:      int32(scores.OverallScore),
+			AlgorithmScore:    int32(scores.AlgorithmScore),
+			ArchitectureScore: int32(scores.ArchitectureScore),
+			CodingScore:       int32(scores.CodingScore),
+			SoftSkillsScore:   int32(scores.SoftSkillsScore),
+			Comments:          scores.Comments,
+		},
 	}, nil
 }
 

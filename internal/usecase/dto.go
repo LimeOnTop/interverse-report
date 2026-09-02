@@ -18,3 +18,12 @@ type ReportDTO struct {
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 }
+
+type AnalysisScoresDTO struct {
+	OverallScore      int
+	AlgorithmScore    int
+	ArchitectureScore int
+	CodingScore       int
+	SoftSkillsScore   int
+	Comments          string
+}

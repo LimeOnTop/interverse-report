@@ -9,6 +9,10 @@ import (
 type Config struct {
 	Port string
 	DatabaseConfig
+	GeminiAPIKey         string
+	GeminiModel          string
+	InterviewServiceURL  string
+	QuestionServiceURL   string
 }
 
 type DatabaseConfig struct {
@@ -23,6 +27,10 @@ func Load() *Config {
 		DatabaseConfig: DatabaseConfig{
 			DatabaseURL: getEnv("DATABASE_URL", "postgres://user:password@localhost/interverse?sslmode=disable"),
 		},
+		GeminiAPIKey:        getEnv("GEMINI_API_KEY", ""),
+		GeminiModel:         getEnv("GEMINI_MODEL", "gemini-flash-latest"),
+		InterviewServiceURL: getEnv("INTERVIEW_SERVICE_URL", "interview-service:50052"),
+		QuestionServiceURL:  getEnv("QUESTION_SERVICE_URL", "question-service:50056"),
 	}
 }
 
