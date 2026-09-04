@@ -73,6 +73,29 @@ func (c *GeminiClient) Analyze(ctx context.Context, prompt string) (GeminiAnalys
 		c.model,
 	)
 
+	var lastErr error
+	for attempt := 1; attempt <= 3; attempt++ {
+		analysis, err := c.analyzeOnce(ctx, url, body)
+		if err == nil {
+			return analysis, nil
+		}
+
+		lastErr = err
+		if attempt == 3 || !isRetryableGeminiError(err) {
+			break
+		}
+
+		select {
+		case <-ctx.Done():
+			return GeminiAnalysis{}, ctx.Err()
+		case <-time.After(time.Duration(attempt) * 2 * time.Second):
+		}
+	}
+
+	return GeminiAnalysis{}, lastErr
+}
+
+func (c *GeminiClient) analyzeOnce(ctx context.Context, url string, body []byte) (GeminiAnalysis, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return GeminiAnalysis{}, fmt.Errorf("create gemini request: %w", err)
@@ -80,6 +103,7 @@ func (c *GeminiClient) Analyze(ctx context.Context, prompt string) (GeminiAnalys
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-goog-api-key", c.apiKey)
+	req.Header.Set("User-Agent", "interverse-report/1.0")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -101,6 +125,8 @@ func (c *GeminiClient) Analyze(ctx context.Context, prompt string) (GeminiAnalys
 		return GeminiAnalysis{}, err
 	}
 
+	text = sanitizeJSON(text)
+
 	var analysis GeminiAnalysis
 	if err := json.Unmarshal([]byte(text), &analysis); err != nil {
 		return GeminiAnalysis{}, fmt.Errorf("parse gemini json: %w; raw=%s", err, text)
@@ -108,6 +134,27 @@ func (c *GeminiClient) Analyze(ctx context.Context, prompt string) (GeminiAnalys
 
 	normalizeScores(&analysis)
 	return analysis, nil
+}
+
+func isRetryableGeminiError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	message := err.Error()
+	return strings.Contains(message, "503") ||
+		strings.Contains(message, "429") ||
+		strings.Contains(message, "500") ||
+		strings.Contains(message, "502") ||
+		strings.Contains(message, "504")
+}
+
+func sanitizeJSON(text string) string {
+	text = strings.TrimSpace(text)
+	text = strings.TrimPrefix(text, "```json")
+	text = strings.TrimPrefix(text, "```")
+	text = strings.TrimSuffix(text, "```")
+	return strings.TrimSpace(text)
 }
 
 func extractGeminiText(body []byte) (string, error) {

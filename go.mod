@@ -9,9 +9,14 @@ require (
 	google.golang.org/grpc v1.76.0
 )
 
-require github.com/LimeOnTop/interverse-contracts v0.0.0-20260805234728-a1c1a5bacbb9
+require (
+	github.com/LimeOnTop/interverse-contracts v0.0.0-20260805234728-a1c1a5bacbb9
+	github.com/redis/go-redis/v9 v9.22.0
+)
 
 require (
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/net v0.42.0 // indirect
 	golang.org/x/sys v0.34.0 // indirect
 	golang.org/x/text v0.27.0 // indirect

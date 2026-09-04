@@ -18,6 +18,7 @@ import (
 	"github.com/LimeOnTop/interverse-report/internal/service"
 	pb "github.com/LimeOnTop/interverse-contracts/report/gen"
 	_ "github.com/lib/pq"
+	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health"
@@ -55,7 +56,15 @@ func main() {
 	}
 
 	geminiClient := client.NewGeminiClient(cfg.GeminiAPIKey, cfg.GeminiModel)
-	analysisService := service.NewAnalysisService(reportRepository, interviewClient, questionClient, geminiClient)
+
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: cfg.RedisAddr,
+		DB:   cfg.RedisAnswersDB,
+	})
+	defer redisClient.Close()
+
+	answerCache := service.NewAnswerCache(redisClient)
+	analysisService := service.NewAnalysisService(reportRepository, interviewClient, questionClient, geminiClient, answerCache)
 	reportController := controller.NewReportController(reportService, analysisService)
 
 	lis, err := net.Listen("tcp", net.JoinHostPort("", cfg.Port))

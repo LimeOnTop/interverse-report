@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/LimeOnTop/interverse-report/internal/client"
@@ -14,18 +15,40 @@ import (
 const trainingCandidateID = "00000000-0000-0000-0000-000000000000"
 
 type analysisMetadata struct {
-	OverallScore           int    `json:"overall_score"`
-	AlgorithmScore         int    `json:"algorithm_score"`
-	ArchitectureScore      int    `json:"architecture_score"`
-	CodingScore            int    `json:"coding_score"`
-	SoftSkillsScore        int    `json:"soft_skills_score"`
-	Comments               string `json:"comments"`
-	InterviewTitle         string `json:"interview_title"`
-	InterviewLevel         string `json:"interview_level"`
-	InterviewSpecialization string `json:"interview_specialization"`
-	InterviewScheduledAt   string `json:"interview_scheduled_at"`
-	MCQCorrect             int    `json:"mcq_correct"`
-	MCQTotal               int    `json:"mcq_total"`
+	OverallScore            int                `json:"overall_score"`
+	AlgorithmScore          int                `json:"algorithm_score"`
+	ArchitectureScore       int                `json:"architecture_score"`
+	CodingScore             int                `json:"coding_score"`
+	SoftSkillsScore         int                `json:"soft_skills_score"`
+	AlgorithmPassed         bool               `json:"algorithm_passed"`
+	ArchitecturePassed      bool               `json:"architecture_passed"`
+	CodingPassed            bool               `json:"coding_passed"`
+	SoftSkillsPassed        bool               `json:"soft_skills_passed"`
+	Comments                string             `json:"comments"`
+	InterviewTitle          string             `json:"interview_title"`
+	InterviewLevel          string             `json:"interview_level"`
+	InterviewSpecialization string             `json:"interview_specialization"`
+	InterviewScheduledAt    string             `json:"interview_scheduled_at"`
+	MCQCorrect              int                `json:"mcq_correct"`
+	MCQTotal                int                `json:"mcq_total"`
+	AnswerReviews           []answerReviewItem `json:"answer_reviews,omitempty"`
+}
+
+// answerReviewItem is persisted so the report UI can show user vs correct/reference answers.
+type answerReviewItem struct {
+	StepID        string   `json:"step_id"`
+	QuestionID    string   `json:"question_id"`
+	ItemType      string   `json:"item_type"`
+	SortOrder     int      `json:"sort_order"`
+	Label         string   `json:"label"`
+	Prompt        string   `json:"prompt"`
+	Technology    string   `json:"technology,omitempty"`
+	Options       []string `json:"options,omitempty"`
+	SelectedIndex *int     `json:"selected_index,omitempty"`
+	CorrectIndex  *int     `json:"correct_index,omitempty"`
+	UserAnswer    string   `json:"user_answer"`
+	CorrectAnswer string   `json:"correct_answer"`
+	IsCorrect     *bool    `json:"is_correct,omitempty"`
 }
 
 type AnswerInput struct {
@@ -41,6 +64,7 @@ type AnalysisService struct {
 	interviewClient *client.InterviewClient
 	questionClient  *client.QuestionClient
 	geminiClient    *client.GeminiClient
+	answerCache     *AnswerCache
 }
 
 func NewAnalysisService(
@@ -48,12 +72,14 @@ func NewAnalysisService(
 	interviewClient *client.InterviewClient,
 	questionClient *client.QuestionClient,
 	geminiClient *client.GeminiClient,
+	answerCache *AnswerCache,
 ) *AnalysisService {
 	return &AnalysisService{
 		repository:      repository,
 		interviewClient: interviewClient,
 		questionClient:  questionClient,
 		geminiClient:    geminiClient,
+		answerCache:     answerCache,
 	}
 }
 
@@ -62,11 +88,19 @@ func (s *AnalysisService) Generate(
 	interviewID, userID string,
 	answers []AnswerInput,
 ) (usecase.ReportDTO, usecase.AnalysisScoresDTO, error) {
+	answers, err := s.resolveAnswers(ctx, interviewID, answers)
+	if err != nil {
+		return usecase.ReportDTO{}, usecase.AnalysisScoresDTO{}, err
+	}
+
 	existing, err := s.repository.GetByInterviewID(ctx, interviewID)
 	if err == nil {
 		scores, parseErr := scoresFromNotes(existing.Notes)
-		if parseErr == nil {
+		if parseErr == nil && !isFallbackReport(scores.Comments) {
 			return toDTO(existing), scores, nil
+		}
+		if deleteErr := s.repository.Delete(ctx, existing.ID); deleteErr != nil {
+			return usecase.ReportDTO{}, usecase.AnalysisScoresDTO{}, fmt.Errorf("replace fallback report: %w", deleteErr)
 		}
 	}
 
@@ -86,16 +120,22 @@ func (s *AnalysisService) Generate(
 
 	mcqSummary, mcqCorrect, mcqTotal := s.scoreMCQ(ctx, questions, answerByStep)
 	taskSummary := s.buildTaskSummary(ctx, tasks, answerByStep)
+	answeredTasks := countAnsweredTasks(tasks, answerByStep)
+	answerReviews := s.buildAnswerReviews(ctx, questions, tasks, answerByStep)
 
-	prompt := buildAnalysisPrompt(interview, mcqSummary, mcqCorrect, mcqTotal, taskSummary)
+	prompt := buildAnalysisPrompt(interview, mcqSummary, mcqCorrect, mcqTotal, taskSummary, answeredTasks)
 	analysis, err := s.geminiClient.Analyze(ctx, prompt)
 	if err != nil {
-		analysis = fallbackAnalysis(mcqCorrect, mcqTotal, taskSummary)
+		log.Printf("gemini analysis failed: %v", err)
+		analysis = fallbackAnalysis(mcqCorrect, mcqTotal, taskSummary, answeredTasks)
 	}
 
 	if mcqTotal > 0 && analysis.AlgorithmScore == 0 {
 		analysis.AlgorithmScore = int(float64(mcqCorrect) / float64(mcqTotal) * 100)
 	}
+
+	finalized := finalizeAnalysisScores(analysis, mcqTotal, answeredTasks)
+	analysis = finalized.Analysis
 
 	metadata := analysisMetadata{
 		OverallScore:            analysis.OverallScore,
@@ -103,6 +143,10 @@ func (s *AnalysisService) Generate(
 		ArchitectureScore:       analysis.ArchitectureScore,
 		CodingScore:             analysis.CodingScore,
 		SoftSkillsScore:         analysis.SoftSkillsScore,
+		AlgorithmPassed:         finalized.Passed.Algorithm,
+		ArchitecturePassed:      finalized.Passed.Architecture,
+		CodingPassed:            finalized.Passed.Coding,
+		SoftSkillsPassed:        finalized.Passed.SoftSkills,
 		Comments:                analysis.Comments,
 		InterviewTitle:          interview.Title,
 		InterviewLevel:          interview.Level,
@@ -110,6 +154,7 @@ func (s *AnalysisService) Generate(
 		InterviewScheduledAt:    interview.ScheduledAt,
 		MCQCorrect:              mcqCorrect,
 		MCQTotal:                mcqTotal,
+		AnswerReviews:           answerReviews,
 	}
 
 	notesJSON, err := json.Marshal(metadata)
@@ -251,11 +296,141 @@ func (s *AnalysisService) buildTaskSummary(
 	return builder.String()
 }
 
+func (s *AnalysisService) buildAnswerReviews(
+	ctx context.Context,
+	questions, tasks []client.SessionItem,
+	answers map[string]AnswerInput,
+) []answerReviewItem {
+	reviews := make([]answerReviewItem, 0, len(questions)+len(tasks))
+
+	for index, item := range questions {
+		answer, hasAnswer := answers[item.ID]
+		questionID := item.QuestionID
+		if questionID == "" && hasAnswer {
+			questionID = answer.QuestionID
+		}
+
+		options := append([]string(nil), item.Options...)
+		var selectedIndex *int
+		var correctIndex *int
+		userAnswer := ""
+		correctAnswer := ""
+		var isCorrect *bool
+
+		if hasAnswer && answer.SelectedOptionIndex != nil {
+			selected := int(*answer.SelectedOptionIndex)
+			selectedIndex = &selected
+			if selected >= 0 && selected < len(options) {
+				userAnswer = options[selected]
+			} else {
+				userAnswer = fmt.Sprintf("Вариант #%d", selected+1)
+			}
+		}
+
+		if questionID != "" {
+			details, err := s.questionClient.GetByID(ctx, questionID)
+			if err == nil {
+				if len(options) == 0 && len(details.Options) > 0 {
+					options = make([]string, 0, len(details.Options))
+					for _, option := range details.Options {
+						options = append(options, option.Text)
+					}
+				}
+				for idx, option := range details.Options {
+					if !option.IsCorrect {
+						continue
+					}
+					correct := idx
+					correctIndex = &correct
+					correctAnswer = option.Text
+					break
+				}
+				if correctAnswer == "" {
+					correctAnswer = details.Answer
+				}
+			}
+		}
+
+		if selectedIndex != nil && correctIndex != nil {
+			ok := *selectedIndex == *correctIndex
+			isCorrect = &ok
+		} else if selectedIndex != nil && correctAnswer != "" && userAnswer != "" {
+			ok := strings.TrimSpace(userAnswer) == strings.TrimSpace(correctAnswer)
+			isCorrect = &ok
+		}
+
+		if userAnswer == "" {
+			userAnswer = "Нет ответа"
+		}
+		if correctAnswer == "" {
+			correctAnswer = "Эталон недоступен"
+		}
+
+		reviews = append(reviews, answerReviewItem{
+			StepID:        item.ID,
+			QuestionID:    questionID,
+			ItemType:      "question",
+			SortOrder:     int(item.SortOrder),
+			Label:         fmt.Sprintf("Вопрос %d", index+1),
+			Prompt:        item.Text,
+			Technology:    item.Technology,
+			Options:       options,
+			SelectedIndex: selectedIndex,
+			CorrectIndex:  correctIndex,
+			UserAnswer:    userAnswer,
+			CorrectAnswer: correctAnswer,
+			IsCorrect:     isCorrect,
+		})
+	}
+
+	for index, item := range tasks {
+		answer, hasAnswer := answers[item.ID]
+		questionID := item.QuestionID
+		if questionID == "" && hasAnswer {
+			questionID = answer.QuestionID
+		}
+
+		userAnswer := ""
+		if hasAnswer {
+			userAnswer = strings.TrimSpace(answer.TaskAnswer)
+		}
+		correctAnswer := ""
+		if questionID != "" {
+			details, err := s.questionClient.GetByID(ctx, questionID)
+			if err == nil {
+				correctAnswer = strings.TrimSpace(details.Answer)
+			}
+		}
+
+		if userAnswer == "" {
+			userAnswer = "Нет ответа"
+		}
+		if correctAnswer == "" {
+			correctAnswer = "Эталонное решение недоступно"
+		}
+
+		reviews = append(reviews, answerReviewItem{
+			StepID:        item.ID,
+			QuestionID:    questionID,
+			ItemType:      "task",
+			SortOrder:     int(item.SortOrder),
+			Label:         fmt.Sprintf("Задача %d", index+1),
+			Prompt:        item.Text,
+			Technology:    item.Technology,
+			UserAnswer:    userAnswer,
+			CorrectAnswer: correctAnswer,
+		})
+	}
+
+	return reviews
+}
+
 func buildAnalysisPrompt(
 	interview client.InterviewSummary,
 	mcqSummary string,
 	mcqCorrect, mcqTotal int,
 	taskSummary string,
+	answeredTasks int,
 ) string {
 	mcqPercent := 0
 	if mcqTotal > 0 {
@@ -273,7 +448,7 @@ Interview context:
 MCQ results (%d/%d correct, %d%%):
 %s
 
-Practical tasks:
+Practical tasks (answered %d):
 %s
 
 Return ONLY valid JSON with this exact schema:
@@ -290,11 +465,13 @@ Return ONLY valid JSON with this exact schema:
 }
 
 Scoring rules:
-- overall_score: weighted summary 0-100
-- algorithm_score: MCQ accuracy and algorithmic thinking
-- architecture_score: system design and architecture knowledge
-- coding_score: quality of practical task answers
-- soft_skills_score: clarity and completeness of explanations
+- Pass threshold for each section is %d points
+- algorithm_score: THEORY score from theoretical MCQ only (map MCQ accuracy here; ignore tasks)
+- architecture_score: always 0 — architecture stage is not available yet
+- coding_score: practical task solutions only (ignore MCQ)
+- soft_skills_score: always 0 — soft skills stage is not available yet
+- overall_score will be recalculated server-side from passed theory/coding only; still provide your best estimate
+- Sections below %d or not attempted are treated as failed and excluded from overall score
 - Use Russian for all text fields
 - Be constructive and specific`,
 		interview.Title,
@@ -305,38 +482,72 @@ Scoring rules:
 		mcqTotal,
 		mcqPercent,
 		mcqSummary,
+		answeredTasks,
 		taskSummary,
+		passScoreThreshold,
+		passScoreThreshold,
 	)
 }
 
-func fallbackAnalysis(mcqCorrect, mcqTotal int, taskSummary string) client.GeminiAnalysis {
+func (s *AnalysisService) resolveAnswers(
+	ctx context.Context,
+	interviewID string,
+	answers []AnswerInput,
+) ([]AnswerInput, error) {
+	if len(answers) > 0 {
+		if s.answerCache != nil {
+			if err := s.answerCache.Save(ctx, interviewID, answers); err != nil {
+				return nil, fmt.Errorf("cache interview answers: %w", err)
+			}
+		}
+		return answers, nil
+	}
+
+	if s.answerCache == nil {
+		return nil, fmt.Errorf("generate report: answers are required")
+	}
+
+	cached, err := s.answerCache.Load(ctx, interviewID)
+	if err != nil {
+		return nil, fmt.Errorf("generate report: answers not found or expired")
+	}
+
+	if len(cached) == 0 {
+		return nil, fmt.Errorf("generate report: answers not found or expired")
+	}
+
+	return cached, nil
+}
+
+func isFallbackReport(comments string) bool {
+	return strings.Contains(comments, "AI-анализ временно недоступен")
+}
+
+func fallbackAnalysis(mcqCorrect, mcqTotal int, taskSummary string, answeredTasks int) client.GeminiAnalysis {
 	mcqScore := 0
 	if mcqTotal > 0 {
 		mcqScore = int(float64(mcqCorrect) / float64(mcqTotal) * 100)
 	}
 
-	hasTasks := strings.TrimSpace(taskSummary) != ""
-	codingScore := 50
-	if !hasTasks {
-		codingScore = 0
+	codingScore := 0
+	if answeredTasks > 0 {
+		codingScore = 50
 	}
 
-	overall := mcqScore
-	if hasTasks {
-		overall = (mcqScore + codingScore) / 2
-	}
-
-	return client.GeminiAnalysis{
-		OverallScore:      overall,
+	raw := client.GeminiAnalysis{
+		OverallScore:      0,
 		AlgorithmScore:    mcqScore,
-		ArchitectureScore: mcqScore,
+		ArchitectureScore: 0,
 		CodingScore:       codingScore,
-		SoftSkillsScore:   max(mcqScore-5, 40),
+		SoftSkillsScore:   0,
 		Comments:          "Автоматическая оценка на основе результатов теста. AI-анализ временно недоступен.",
-		Strengths:         "Ответы на вопросы с вариантами зафиксированы.",
-		Weaknesses:          "Требуется ручная проверка практических задач.",
-		Recommendations:     "Повторите темы с ошибками и пересдайте тренировку.",
+		Strengths:         "Ответы на теоретические вопросы зафиксированы.",
+		Weaknesses:        "Требуется ручная проверка практических задач.",
+		Recommendations:   "Повторите темы с ошибками и пересдайте тренировку.",
 	}
+	_ = taskSummary
+
+	return finalizeAnalysisScores(raw, mcqTotal, answeredTasks).Analysis
 }
 
 func scoresFromNotes(notes string) (usecase.AnalysisScoresDTO, error) {
