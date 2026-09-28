@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	interviewpb "github.com/LimeOnTop/interverse-contracts/interview/gen"
 	"google.golang.org/grpc"
@@ -23,7 +24,7 @@ type SessionItem struct {
 
 type InterviewSummary struct {
 	ID             string
-	UserID         string
+	UserID         int64
 	Title          string
 	Description    string
 	Status         string
@@ -47,10 +48,10 @@ func NewInterviewClient(interviewServiceURL string) (*InterviewClient, error) {
 	}, nil
 }
 
-func (c *InterviewClient) GetSessionContent(ctx context.Context, interviewID, userID string) (InterviewSummary, []SessionItem, []SessionItem, error) {
+func (c *InterviewClient) GetSessionContent(ctx context.Context, interviewID string, userID int64) (InterviewSummary, []SessionItem, []SessionItem, error) {
 	resp, err := c.client.GetSessionContent(ctx, &interviewpb.GetSessionContentRequest{
 		InterviewId: interviewID,
-		UserId:      userID,
+		UserId:      strconv.FormatInt(userID, 10),
 	})
 	if err != nil {
 		return InterviewSummary{}, nil, nil, fmt.Errorf("get session content: %w", err)
@@ -65,9 +66,14 @@ func (c *InterviewClient) GetSessionContent(ctx context.Context, interviewID, us
 		return InterviewSummary{}, nil, nil, fmt.Errorf("get session content: empty interview")
 	}
 
+	parsedUserID, err := strconv.ParseInt(interview.GetUserId(), 10, 64)
+	if err != nil {
+		return InterviewSummary{}, nil, nil, fmt.Errorf("get session content: invalid user id: %w", err)
+	}
+
 	summary := InterviewSummary{
 		ID:             interview.GetId(),
-		UserID:         interview.GetUserId(),
+		UserID:         parsedUserID,
 		Title:          interview.GetTitle(),
 		Description:    interview.GetDescription(),
 		Status:         interview.GetStatus(),

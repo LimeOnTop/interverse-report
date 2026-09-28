@@ -12,8 +12,6 @@ import (
 	"github.com/LimeOnTop/interverse-report/internal/usecase"
 )
 
-const trainingCandidateID = "00000000-0000-0000-0000-000000000000"
-
 type analysisMetadata struct {
 	OverallScore            int                `json:"overall_score"`
 	AlgorithmScore          int                `json:"algorithm_score"`
@@ -52,11 +50,11 @@ type answerReviewItem struct {
 }
 
 type AnswerInput struct {
-	StepID               string
-	QuestionID           string
-	ItemType             string
-	SelectedOptionIndex  *int32
-	TaskAnswer           string
+	StepID              string
+	QuestionID          string
+	ItemType            string
+	SelectedOptionIndex *int32
+	TaskAnswer          string
 }
 
 type AnalysisService struct {
@@ -85,7 +83,8 @@ func NewAnalysisService(
 
 func (s *AnalysisService) Generate(
 	ctx context.Context,
-	interviewID, userID string,
+	interviewID string,
+	userID int64,
 	answers []AnswerInput,
 ) (usecase.ReportDTO, usecase.AnalysisScoresDTO, error) {
 	answers, err := s.resolveAnswers(ctx, interviewID, answers)
@@ -164,8 +163,7 @@ func (s *AnalysisService) Generate(
 
 	created, err := s.repository.Create(ctx, entity.Report{
 		InterviewID:         interviewID,
-		CandidateID:         trainingCandidateID,
-		InterviewerID:       userID,
+		UserID:              userID,
 		OverallRating:       fmt.Sprintf("%d", analysis.OverallScore),
 		TechnicalSkills:     fmt.Sprintf("%d", analysis.AlgorithmScore),
 		CommunicationSkills: fmt.Sprintf("%d", analysis.SoftSkillsScore),
@@ -262,12 +260,12 @@ func (s *AnalysisService) buildTaskSummary(
 
 	for idx, item := range tasks {
 		answer, ok := answers[item.ID]
-		candidateAnswer := ""
+		userAnswer := ""
 		if ok {
-			candidateAnswer = strings.TrimSpace(answer.TaskAnswer)
+			userAnswer = strings.TrimSpace(answer.TaskAnswer)
 		}
-		if candidateAnswer == "" {
-			candidateAnswer = "(no answer)"
+		if userAnswer == "" {
+			userAnswer = "(no answer)"
 		}
 
 		referenceAnswer := ""
@@ -283,13 +281,13 @@ func (s *AnalysisService) buildTaskSummary(
 		}
 
 		builder.WriteString(fmt.Sprintf(
-			"Task %d:\nQuestion: %s\nTechnology: %s\nCategory: %s\nReference answer: %s\nCandidate answer:\n%s\n\n",
+			"Task %d:\nQuestion: %s\nTechnology: %s\nCategory: %s\nReference answer: %s\nUser answer:\n%s\n\n",
 			idx+1,
 			item.Text,
 			item.Technology,
 			item.Category,
 			referenceAnswer,
-			candidateAnswer,
+			userAnswer,
 		))
 	}
 

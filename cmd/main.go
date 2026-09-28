@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"github.com/LimeOnTop/interverse-report/internal/apperr"
 	"log"
 	"net"
 	"os"
@@ -11,12 +12,16 @@ import (
 	"syscall"
 	"time"
 
+	pb "github.com/LimeOnTop/interverse-contracts/report/gen"
 	"github.com/LimeOnTop/interverse-report/cmd/config"
 	"github.com/LimeOnTop/interverse-report/internal/client"
+	"github.com/LimeOnTop/interverse-report/internal/consumer"
 	"github.com/LimeOnTop/interverse-report/internal/controller"
+	"github.com/LimeOnTop/interverse-report/internal/keycache"
+	"github.com/LimeOnTop/interverse-report/internal/producer"
 	"github.com/LimeOnTop/interverse-report/internal/repository"
 	"github.com/LimeOnTop/interverse-report/internal/service"
-	pb "github.com/LimeOnTop/interverse-contracts/report/gen"
+	"github.com/LimeOnTop/interverse-report/internal/usecase"
 	_ "github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
@@ -31,6 +36,7 @@ const shutdownTimeout = 15 * time.Second
 func main() {
 	cfg := config.Load()
 
+	apperr.Configure(cfg.DevMode)
 	db, err := sql.Open("postgres", cfg.DatabaseURL)
 	if err != nil {
 		panic("open database: " + err.Error())
@@ -43,6 +49,7 @@ func main() {
 	defer db.Close()
 
 	reportRepository := repository.NewReportRepository(db)
+	outboxRepository := repository.NewOutboxRepository(db)
 	reportService := service.NewReportService(reportRepository)
 
 	interviewClient, err := client.NewInterviewClient(cfg.InterviewServiceURL)
@@ -62,6 +69,52 @@ func main() {
 		DB:   cfg.RedisAnswersDB,
 	})
 	defer redisClient.Close()
+
+	addresses := producer.SplitAddresses(cfg.KafkaBrokers)
+
+	messageBroker, err := producer.NewMessageBroker(producer.BrokerConfig{Addresses: addresses})
+	if err != nil {
+		panic("message broker: " + err.Error())
+	}
+	defer messageBroker.Close()
+
+	reportProducer := producer.NewOutboxPublisher(outboxRepository, cfg.KafkaTopicReports)
+	var _ usecase.ReportProducer = reportProducer
+
+	outboxRelay := producer.NewOutboxRelay(outboxRepository, messageBroker, producer.RelayConfig{
+		BatchSize:    50,
+		PollInterval: time.Second,
+		MaxAttempts:  10,
+	})
+
+	idempotency := keycache.NewStore(redisClient, 72*time.Hour)
+	analyzer := service.NewTrainingReportAnalyzer()
+
+	reportConsumer, err := consumer.NewReportConsumer(consumer.Config{
+		Brokers:  addresses,
+		Topic:    cfg.KafkaTopicReports,
+		DLQTopic: cfg.KafkaTopicReportsDLQ,
+		GroupID:  cfg.KafkaGroupID,
+	}, analyzer, idempotency)
+	if err != nil {
+		panic("kafka consumer: " + err.Error())
+	}
+	defer reportConsumer.Close()
+
+	rootCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		if err := outboxRelay.Run(rootCtx); err != nil {
+			log.Printf("outbox relay stopped: %v", err)
+		}
+	}()
+
+	go func() {
+		if err := reportConsumer.Run(rootCtx); err != nil {
+			log.Printf("kafka consumer stopped: %v", err)
+		}
+	}()
 
 	answerCache := service.NewAnswerCache(redisClient)
 	analysisService := service.NewAnalysisService(reportRepository, interviewClient, questionClient, geminiClient, answerCache)
@@ -90,7 +143,7 @@ func main() {
 
 	defer close(errCh)
 
-	waitForShutdown(grpcServer, healthServer, errCh)
+	waitForShutdown(cancel, grpcServer, healthServer, errCh)
 }
 
 func recoveryUnary() grpc.UnaryServerInterceptor {
@@ -115,7 +168,12 @@ func recoveryUnary() grpc.UnaryServerInterceptor {
 	}
 }
 
-func waitForShutdown(grpcServer *grpc.Server, healthServer *health.Server, errCh <-chan error) {
+func waitForShutdown(
+	cancel context.CancelFunc,
+	grpcServer *grpc.Server,
+	healthServer *health.Server,
+	errCh <-chan error,
+) {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
@@ -126,9 +184,11 @@ func waitForShutdown(grpcServer *grpc.Server, healthServer *health.Server, errCh
 		if err != nil && err != grpc.ErrServerStopped {
 			panic("grpc serve: " + err.Error())
 		}
+		cancel()
 		return
 	}
 
+	cancel()
 	healthServer.SetServingStatus("", healthpb.HealthCheckResponse_NOT_SERVING)
 
 	stopped := make(chan struct{})

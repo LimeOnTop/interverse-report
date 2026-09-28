@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/LimeOnTop/interverse-report/internal/entity"
+	"github.com/LimeOnTop/interverse-report/internal/usecase"
 	"github.com/google/uuid"
 )
 
@@ -18,6 +19,10 @@ func NewReportRepository(db *sql.DB) *ReportRepository {
 	return &ReportRepository{db: db}
 }
 
+func (r *ReportRepository) querier(ctx context.Context) usecase.DBTX {
+	return usecase.DBTXFromContext(ctx, r.db)
+}
+
 func (r *ReportRepository) Create(ctx context.Context, report entity.Report) (entity.Report, error) {
 	report.ID = uuid.New().String()
 	report.CreatedAt = time.Now()
@@ -25,15 +30,15 @@ func (r *ReportRepository) Create(ctx context.Context, report entity.Report) (en
 
 	query := `
 		INSERT INTO reports (
-			id, interview_id, candidate_id, interviewer_id,
+			id, interview_id, user_id,
 			overall_rating, technical_skills, communication_skills, problem_solving,
 			strengths, weaknesses, recommendations, notes, created_at, updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`
 
-	_, err := r.db.ExecContext(ctx, query,
-		report.ID, report.InterviewID, report.CandidateID, report.InterviewerID,
+	_, err := r.querier(ctx).ExecContext(ctx, query,
+		report.ID, report.InterviewID, report.UserID,
 		report.OverallRating, report.TechnicalSkills, report.CommunicationSkills,
 		report.ProblemSolving, report.Strengths, report.Weaknesses,
 		report.Recommendations, report.Notes, report.CreatedAt, report.UpdatedAt,
@@ -47,7 +52,7 @@ func (r *ReportRepository) Create(ctx context.Context, report entity.Report) (en
 
 func (r *ReportRepository) GetByInterviewID(ctx context.Context, interviewID string) (entity.Report, error) {
 	query := `
-		SELECT id, interview_id, candidate_id, interviewer_id,
+		SELECT id, interview_id, user_id,
 		       overall_rating, technical_skills, communication_skills, problem_solving,
 		       strengths, weaknesses, recommendations, notes, created_at, updated_at
 		FROM reports WHERE interview_id = $1
@@ -56,8 +61,8 @@ func (r *ReportRepository) GetByInterviewID(ctx context.Context, interviewID str
 	`
 
 	var report entity.Report
-	err := r.db.QueryRowContext(ctx, query, interviewID).Scan(
-		&report.ID, &report.InterviewID, &report.CandidateID, &report.InterviewerID,
+	err := r.querier(ctx).QueryRowContext(ctx, query, interviewID).Scan(
+		&report.ID, &report.InterviewID, &report.UserID,
 		&report.OverallRating, &report.TechnicalSkills, &report.CommunicationSkills,
 		&report.ProblemSolving, &report.Strengths, &report.Weaknesses,
 		&report.Recommendations, &report.Notes, &report.CreatedAt, &report.UpdatedAt,
@@ -74,15 +79,15 @@ func (r *ReportRepository) GetByInterviewID(ctx context.Context, interviewID str
 
 func (r *ReportRepository) GetByID(ctx context.Context, id string) (entity.Report, error) {
 	query := `
-		SELECT id, interview_id, candidate_id, interviewer_id,
+		SELECT id, interview_id, user_id,
 		       overall_rating, technical_skills, communication_skills, problem_solving,
 		       strengths, weaknesses, recommendations, notes, created_at, updated_at
 		FROM reports WHERE id = $1
 	`
 
 	var report entity.Report
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&report.ID, &report.InterviewID, &report.CandidateID, &report.InterviewerID,
+	err := r.querier(ctx).QueryRowContext(ctx, query, id).Scan(
+		&report.ID, &report.InterviewID, &report.UserID,
 		&report.OverallRating, &report.TechnicalSkills, &report.CommunicationSkills,
 		&report.ProblemSolving, &report.Strengths, &report.Weaknesses,
 		&report.Recommendations, &report.Notes, &report.CreatedAt, &report.UpdatedAt,
@@ -97,18 +102,18 @@ func (r *ReportRepository) GetByID(ctx context.Context, id string) (entity.Repor
 	return report, nil
 }
 
-func (r *ReportRepository) GetByInterviewer(ctx context.Context, interviewerID string, limit, offset int) ([]entity.Report, error) {
+func (r *ReportRepository) GetByUser(ctx context.Context, userID int64, limit, offset int64) ([]entity.Report, error) {
 	query := `
-		SELECT id, interview_id, candidate_id, interviewer_id,
+		SELECT id, interview_id, user_id,
 		       overall_rating, technical_skills, communication_skills, problem_solving,
 		       strengths, weaknesses, recommendations, notes, created_at, updated_at
 		FROM reports
-		WHERE interviewer_id = $1
+		WHERE user_id = $1
 		ORDER BY created_at DESC
 		LIMIT $2 OFFSET $3
 	`
 
-	rows, err := r.db.QueryContext(ctx, query, interviewerID, limit, offset)
+	rows, err := r.querier(ctx).QueryContext(ctx, query, userID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("get reports: %w", err)
 	}
@@ -128,7 +133,7 @@ func (r *ReportRepository) Update(ctx context.Context, report entity.Report) (en
 		WHERE id = $10
 	`
 
-	_, err := r.db.ExecContext(ctx, query,
+	_, err := r.querier(ctx).ExecContext(ctx, query,
 		report.OverallRating, report.TechnicalSkills, report.CommunicationSkills,
 		report.ProblemSolving, report.Strengths, report.Weaknesses,
 		report.Recommendations, report.Notes, report.UpdatedAt, report.ID,
@@ -143,7 +148,7 @@ func (r *ReportRepository) Update(ctx context.Context, report entity.Report) (en
 func (r *ReportRepository) Delete(ctx context.Context, id string) error {
 	query := `DELETE FROM reports WHERE id = $1`
 
-	_, err := r.db.ExecContext(ctx, query, id)
+	_, err := r.querier(ctx).ExecContext(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("delete report: %w", err)
 	}
@@ -157,7 +162,7 @@ func scanReports(rows *sql.Rows) ([]entity.Report, error) {
 	for rows.Next() {
 		var report entity.Report
 		if err := rows.Scan(
-			&report.ID, &report.InterviewID, &report.CandidateID, &report.InterviewerID,
+			&report.ID, &report.InterviewID, &report.UserID,
 			&report.OverallRating, &report.TechnicalSkills, &report.CommunicationSkills,
 			&report.ProblemSolving, &report.Strengths, &report.Weaknesses,
 			&report.Recommendations, &report.Notes, &report.CreatedAt, &report.UpdatedAt,

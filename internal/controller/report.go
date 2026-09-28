@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/LimeOnTop/interverse-report/internal/apperr"
+	"strconv"
 	"time"
 
+	pb "github.com/LimeOnTop/interverse-contracts/report/gen"
 	"github.com/LimeOnTop/interverse-report/internal/entity"
 	"github.com/LimeOnTop/interverse-report/internal/service"
 	"github.com/LimeOnTop/interverse-report/internal/usecase"
-	pb "github.com/LimeOnTop/interverse-contracts/report/gen"
 )
 
 type ReportController struct {
@@ -26,10 +28,10 @@ func NewReportController(report usecase.Report, analysis *service.AnalysisServic
 }
 
 func (c *ReportController) CreateReport(ctx context.Context, req *pb.CreateReportRequest) (*pb.CreateReportResponse, error) {
+	userID, err := strconv.ParseInt(req.GetUserId(), 10, 64)
 	created, err := c.report.Create(ctx, entity.Report{
 		InterviewID:         req.InterviewId,
-		CandidateID:         req.CandidateId,
-		InterviewerID:       req.InterviewerId,
+		UserID:              userID,
 		OverallRating:       req.OverallRating,
 		TechnicalSkills:     req.TechnicalSkills,
 		CommunicationSkills: req.CommunicationSkills,
@@ -46,7 +48,7 @@ func (c *ReportController) CreateReport(ctx context.Context, req *pb.CreateRepor
 		return &pb.CreateReportResponse{
 			Response: &pb.Response{
 				Success: false,
-				Error:   err.Error(),
+				Error:   apperr.Message(err, "request failed"),
 			},
 		}, nil
 	}
@@ -61,6 +63,16 @@ func (c *ReportController) CreateReport(ctx context.Context, req *pb.CreateRepor
 }
 
 func (c *ReportController) GenerateReport(ctx context.Context, req *pb.GenerateReportRequest) (*pb.GenerateReportResponse, error) {
+	userID, err := strconv.ParseInt(req.GetUserId(), 10, 64)
+	if err != nil {
+		return &pb.GenerateReportResponse{
+			Response: &pb.Response{
+				Success: false,
+				Error:   "invalid user id",
+			},
+		}, nil
+	}
+
 	answers := make([]service.AnswerInput, 0, len(req.GetAnswers()))
 	for _, answer := range req.GetAnswers() {
 		input := service.AnswerInput{
@@ -76,7 +88,7 @@ func (c *ReportController) GenerateReport(ctx context.Context, req *pb.GenerateR
 		answers = append(answers, input)
 	}
 
-	created, scores, err := c.analysis.Generate(ctx, req.GetInterviewId(), req.GetUserId(), answers)
+	created, scores, err := c.analysis.Generate(ctx, req.GetInterviewId(), userID, answers)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			return nil, fmt.Errorf("context canceled: %w", err)
@@ -84,7 +96,7 @@ func (c *ReportController) GenerateReport(ctx context.Context, req *pb.GenerateR
 		return &pb.GenerateReportResponse{
 			Response: &pb.Response{
 				Success: false,
-				Error:   err.Error(),
+				Error:   apperr.Message(err, "request failed"),
 			},
 		}, nil
 	}
@@ -115,7 +127,7 @@ func (c *ReportController) GetReport(ctx context.Context, req *pb.GetReportReque
 		return &pb.GetReportResponse{
 			Response: &pb.Response{
 				Success: false,
-				Error:   err.Error(),
+				Error:   apperr.Message(err, "request failed"),
 			},
 		}, nil
 	}
@@ -129,15 +141,25 @@ func (c *ReportController) GetReport(ctx context.Context, req *pb.GetReportReque
 }
 
 func (c *ReportController) GetReports(ctx context.Context, req *pb.GetReportsRequest) (*pb.GetReportsResponse, error) {
-	limit := 10
-	offset := 0
-
-	if req.Pagination != nil {
-		limit = int(req.Pagination.Limit)
-		offset = int(req.Pagination.Page-1) * int(req.Pagination.Limit)
+	userID, err := strconv.ParseInt(req.GetUserId(), 10, 64)
+	if err != nil {
+		return &pb.GetReportsResponse{
+			Response: &pb.Response{
+				Success: false,
+				Error:   "invalid user id",
+			},
+		}, nil
 	}
 
-	reports, err := c.report.GetByInterviewer(ctx, req.InterviewerId, limit, offset)
+	limit := int64(10)
+	offset := int64(0)
+
+	if req.Pagination != nil {
+		limit = int64(req.Pagination.Limit)
+		offset = int64(req.Pagination.Page-1) * int64(req.Pagination.Limit)
+	}
+
+	reports, err := c.report.GetByUser(ctx, userID, limit, offset)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			return nil, fmt.Errorf("context canceled: %w", err)
@@ -145,7 +167,7 @@ func (c *ReportController) GetReports(ctx context.Context, req *pb.GetReportsReq
 		return &pb.GetReportsResponse{
 			Response: &pb.Response{
 				Success: false,
-				Error:   err.Error(),
+				Error:   apperr.Message(err, "request failed"),
 			},
 		}, nil
 	}
@@ -182,7 +204,7 @@ func (c *ReportController) UpdateReport(ctx context.Context, req *pb.UpdateRepor
 		return &pb.UpdateReportResponse{
 			Response: &pb.Response{
 				Success: false,
-				Error:   err.Error(),
+				Error:   apperr.Message(err, "request failed"),
 			},
 		}, nil
 	}
@@ -204,7 +226,7 @@ func (c *ReportController) DeleteReport(ctx context.Context, req *pb.DeleteRepor
 		}
 		return &pb.Response{
 			Success: false,
-			Error:   err.Error(),
+			Error:   apperr.Message(err, "request failed"),
 		}, nil
 	}
 
@@ -218,8 +240,7 @@ func toProtoReport(report usecase.ReportDTO) *pb.Report {
 	return &pb.Report{
 		Id:                  report.ID,
 		InterviewId:         report.InterviewID,
-		CandidateId:         report.CandidateID,
-		InterviewerId:       report.InterviewerID,
+		UserId:              strconv.FormatInt(report.UserID, 10),
 		OverallRating:       report.OverallRating,
 		TechnicalSkills:     report.TechnicalSkills,
 		CommunicationSkills: report.CommunicationSkills,

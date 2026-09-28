@@ -36,8 +36,8 @@ func (s *ReportService) GetByID(ctx context.Context, id string) (usecase.ReportD
 	return toDTO(report), nil
 }
 
-func (s *ReportService) GetByInterviewer(ctx context.Context, interviewerID string, limit, offset int) ([]usecase.ReportDTO, error) {
-	reports, err := s.repository.GetByInterviewer(ctx, interviewerID, limit, offset)
+func (s *ReportService) GetByUser(ctx context.Context, userID int64, limit, offset int64) ([]usecase.ReportDTO, error) {
+	reports, err := s.repository.GetByUser(ctx, userID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("get reports: %w", err)
 	}
@@ -79,8 +79,7 @@ func toDTO(report entity.Report) usecase.ReportDTO {
 	return usecase.ReportDTO{
 		ID:                  report.ID,
 		InterviewID:         report.InterviewID,
-		CandidateID:         report.CandidateID,
-		InterviewerID:       report.InterviewerID,
+		UserID:              report.UserID,
 		OverallRating:       report.OverallRating,
 		TechnicalSkills:     report.TechnicalSkills,
 		CommunicationSkills: report.CommunicationSkills,

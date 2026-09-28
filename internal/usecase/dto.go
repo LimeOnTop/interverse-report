@@ -5,8 +5,7 @@ import "time"
 type ReportDTO struct {
 	ID                  string
 	InterviewID         string
-	CandidateID         string
-	InterviewerID       string
+	UserID              int64
 	OverallRating       string
 	TechnicalSkills     string
 	CommunicationSkills string

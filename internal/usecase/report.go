@@ -9,7 +9,7 @@ import (
 type Report interface {
 	Create(ctx context.Context, report entity.Report) (ReportDTO, error)
 	GetByID(ctx context.Context, id string) (ReportDTO, error)
-	GetByInterviewer(ctx context.Context, interviewerID string, limit, offset int) ([]ReportDTO, error)
+	GetByUser(ctx context.Context, userID int64, limit, offset int64) ([]ReportDTO, error)
 	Update(ctx context.Context, report entity.Report) (ReportDTO, error)
 	Delete(ctx context.Context, id string) error
 }
