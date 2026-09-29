@@ -13,8 +13,14 @@ type Config struct {
 	DatabaseConfig
 	RedisConfig
 	KafkaConfig
+	LLMProvider         string
 	GeminiAPIKey        string
 	GeminiModel         string
+	GeminiHTTPProxy     string
+	GeminiAPIBase       string
+	DeepSeekAPIKey      string
+	DeepSeekModel       string
+	DeepSeekAPIBase     string
 	InterviewServiceURL string
 	QuestionServiceURL  string
 }
@@ -56,6 +62,12 @@ func Load() *Config {
 		},
 		GeminiAPIKey:        getEnv("GEMINI_API_KEY", ""),
 		GeminiModel:         getEnv("GEMINI_MODEL", "gemini-flash-latest"),
+		GeminiHTTPProxy:     getEnv("GEMINI_HTTP_PROXY", ""),
+		GeminiAPIBase:       getEnv("GEMINI_API_BASE", "https://generativelanguage.googleapis.com"),
+		DeepSeekAPIKey:      getEnv("DEEPSEEK_API_KEY", ""),
+		DeepSeekModel:       getEnv("DEEPSEEK_MODEL", "deepseek-chat"),
+		DeepSeekAPIBase:     getEnv("DEEPSEEK_API_BASE", "https://api.deepseek.com"),
+		LLMProvider:         getEnv("LLM_PROVIDER", "deepseek"),
 		InterviewServiceURL: getEnv("INTERVIEW_SERVICE_URL", "interview-service:50052"),
 		QuestionServiceURL:  getEnv("QUESTION_SERVICE_URL", "question-service:50056"),
 	}

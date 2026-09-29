@@ -6,9 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
+
+	"golang.org/x/net/proxy"
 )
 
 const defaultGeminiModel = "gemini-flash-latest"
@@ -28,21 +32,76 @@ type GeminiAnalysis struct {
 type GeminiClient struct {
 	apiKey     string
 	model      string
+	baseURL    string
 	httpClient *http.Client
 }
 
-func NewGeminiClient(apiKey, model string) *GeminiClient {
+func NewGeminiClient(apiKey, model, proxyURL, baseURL string) *GeminiClient {
 	if model == "" {
 		model = defaultGeminiModel
 	}
+	if strings.TrimSpace(baseURL) == "" {
+		baseURL = "https://generativelanguage.googleapis.com"
+	}
 
 	return &GeminiClient{
-		apiKey: apiKey,
-		model:  model,
+		apiKey:  apiKey,
+		model:   model,
+		baseURL: strings.TrimRight(baseURL, "/"),
 		httpClient: &http.Client{
-			Timeout: 90 * time.Second,
+			Timeout:   90 * time.Second,
+			Transport: newGeminiTransport(proxyURL),
 		},
 	}
+}
+
+func newGeminiTransport(proxyURL string) http.RoundTripper {
+	base, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		base = &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+			ForceAttemptHTTP2:     true,
+			MaxIdleConns:          100,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+		}
+	}
+	transport := base.Clone()
+
+	proxyURL = strings.TrimSpace(proxyURL)
+	if proxyURL == "" {
+		return transport
+	}
+
+	parsed, err := url.Parse(proxyURL)
+	if err != nil {
+		return transport
+	}
+
+	switch strings.ToLower(parsed.Scheme) {
+	case "socks5", "socks5h":
+		dialer, err := proxy.FromURL(parsed, proxy.Direct)
+		if err != nil {
+			return transport
+		}
+		if contextDialer, ok := dialer.(proxy.ContextDialer); ok {
+			transport.DialContext = contextDialer.DialContext
+		} else {
+			transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+				return dialer.Dial(network, addr)
+			}
+		}
+		transport.Proxy = nil
+	default:
+		transport.Proxy = http.ProxyURL(parsed)
+	}
+
+	return transport
 }
 
 func (c *GeminiClient) Analyze(ctx context.Context, prompt string) (GeminiAnalysis, error) {
@@ -69,7 +128,8 @@ func (c *GeminiClient) Analyze(ctx context.Context, prompt string) (GeminiAnalys
 	}
 
 	url := fmt.Sprintf(
-		"https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent",
+		"%s/v1beta/models/%s:generateContent",
+		c.baseURL,
 		c.model,
 	)
 

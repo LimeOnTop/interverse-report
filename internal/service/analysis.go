@@ -61,7 +61,7 @@ type AnalysisService struct {
 	repository      usecase.ReportRepository
 	interviewClient *client.InterviewClient
 	questionClient  *client.QuestionClient
-	geminiClient    *client.GeminiClient
+	geminiClient    client.Analyzer
 	answerCache     *AnswerCache
 }
 
@@ -69,7 +69,7 @@ func NewAnalysisService(
 	repository usecase.ReportRepository,
 	interviewClient *client.InterviewClient,
 	questionClient *client.QuestionClient,
-	geminiClient *client.GeminiClient,
+	geminiClient client.Analyzer,
 	answerCache *AnswerCache,
 ) *AnalysisService {
 	return &AnalysisService{

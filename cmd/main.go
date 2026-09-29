@@ -3,17 +3,18 @@ package main
 import (
 	"context"
 	"database/sql"
-	"github.com/LimeOnTop/interverse-report/internal/apperr"
 	"log"
 	"net"
 	"os"
 	"os/signal"
 	"runtime/debug"
+	"strings"
 	"syscall"
 	"time"
 
 	pb "github.com/LimeOnTop/interverse-contracts/report/gen"
 	"github.com/LimeOnTop/interverse-report/cmd/config"
+	"github.com/LimeOnTop/interverse-report/internal/apperr"
 	"github.com/LimeOnTop/interverse-report/internal/client"
 	"github.com/LimeOnTop/interverse-report/internal/consumer"
 	"github.com/LimeOnTop/interverse-report/internal/controller"
@@ -62,7 +63,16 @@ func main() {
 		panic("question client: " + err.Error())
 	}
 
-	geminiClient := client.NewGeminiClient(cfg.GeminiAPIKey, cfg.GeminiModel)
+	if cfg.GeminiHTTPProxy != "" {
+		log.Printf("gemini http proxy enabled: %s", cfg.GeminiHTTPProxy)
+	}
+	if cfg.GeminiAPIBase != "" && cfg.GeminiAPIBase != "https://generativelanguage.googleapis.com" {
+		log.Printf("gemini api base override: %s", cfg.GeminiAPIBase)
+	}
+
+	geminiClient := client.NewGeminiClient(cfg.GeminiAPIKey, cfg.GeminiModel, cfg.GeminiHTTPProxy, cfg.GeminiAPIBase)
+	deepseekClient := client.NewDeepSeekClient(cfg.DeepSeekAPIKey, cfg.DeepSeekModel, cfg.DeepSeekAPIBase)
+	llmAnalyzer := buildAnalyzer(cfg.LLMProvider, geminiClient, deepseekClient)
 
 	redisClient := redis.NewClient(&redis.Options{
 		Addr: cfg.RedisAddr,
@@ -88,14 +98,14 @@ func main() {
 	})
 
 	idempotency := keycache.NewStore(redisClient, 72*time.Hour)
-	analyzer := service.NewTrainingReportAnalyzer()
+	trainingAnalyzer := service.NewTrainingReportAnalyzer()
 
 	reportConsumer, err := consumer.NewReportConsumer(consumer.Config{
 		Brokers:  addresses,
 		Topic:    cfg.KafkaTopicReports,
 		DLQTopic: cfg.KafkaTopicReportsDLQ,
 		GroupID:  cfg.KafkaGroupID,
-	}, analyzer, idempotency)
+	}, trainingAnalyzer, idempotency)
 	if err != nil {
 		panic("kafka consumer: " + err.Error())
 	}
@@ -117,7 +127,7 @@ func main() {
 	}()
 
 	answerCache := service.NewAnswerCache(redisClient)
-	analysisService := service.NewAnalysisService(reportRepository, interviewClient, questionClient, geminiClient, answerCache)
+	analysisService := service.NewAnalysisService(reportRepository, interviewClient, questionClient, llmAnalyzer, answerCache)
 	reportController := controller.NewReportController(reportService, analysisService)
 
 	lis, err := net.Listen("tcp", net.JoinHostPort("", cfg.Port))
@@ -203,5 +213,38 @@ func waitForShutdown(
 	case <-time.After(shutdownTimeout):
 		log.Print("shutdown timed out, forcing stop")
 		grpcServer.Stop()
+	}
+}
+
+func buildAnalyzer(provider string, gemini *client.GeminiClient, deepseek *client.DeepSeekClient) client.Analyzer {
+	provider = strings.ToLower(strings.TrimSpace(provider))
+
+	deepseekFirst := func() client.Analyzer {
+		log.Printf("llm provider: deepseek primary (%d attempts), gemini fallback", client.DefaultPrimaryAttempts())
+		return &client.FallbackAnalyzer{
+			Primary:         deepseek,
+			Secondary:       gemini,
+			NamePrim:        "deepseek",
+			NameSec:         "gemini",
+			PrimaryAttempts: client.DefaultPrimaryAttempts(),
+		}
+	}
+
+	switch provider {
+	case "gemini":
+		log.Printf("llm provider: gemini only")
+		return gemini
+	case "deepseek", "auto", "":
+		if deepseek.Enabled() {
+			return deepseekFirst()
+		}
+		log.Printf("llm provider: deepseek key missing; using gemini only")
+		return gemini
+	default:
+		if deepseek.Enabled() {
+			return deepseekFirst()
+		}
+		log.Printf("llm provider %q unknown and deepseek unavailable; using gemini", provider)
+		return gemini
 	}
 }

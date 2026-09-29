@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/LimeOnTop/interverse-report/internal/apperr"
 	"strconv"
+	"strings"
 	"time"
 
 	pb "github.com/LimeOnTop/interverse-contracts/report/gen"
+	"github.com/LimeOnTop/interverse-report/internal/apperr"
 	"github.com/LimeOnTop/interverse-report/internal/entity"
 	"github.com/LimeOnTop/interverse-report/internal/service"
 	"github.com/LimeOnTop/interverse-report/internal/usecase"
@@ -96,7 +97,7 @@ func (c *ReportController) GenerateReport(ctx context.Context, req *pb.GenerateR
 		return &pb.GenerateReportResponse{
 			Response: &pb.Response{
 				Success: false,
-				Error:   apperr.Message(err, "request failed"),
+				Error:   generateReportError(err),
 			},
 		}, nil
 	}
@@ -234,6 +235,18 @@ func (c *ReportController) DeleteReport(ctx context.Context, req *pb.DeleteRepor
 		Success: true,
 		Message: "Report deleted successfully",
 	}, nil
+}
+
+func generateReportError(err error) string {
+	lower := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(lower, "not found") || strings.Contains(lower, "не найдена"):
+		return apperr.Message(err, "Тренировка не найдена")
+	case strings.Contains(lower, "forbidden") || strings.Contains(lower, "нет доступа"):
+		return apperr.Message(err, "Нет доступа к тренировке")
+	default:
+		return apperr.Message(err, "Не удалось сформировать отчёт")
+	}
 }
 
 func toProtoReport(report usecase.ReportDTO) *pb.Report {
