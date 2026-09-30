@@ -75,8 +75,9 @@ func main() {
 	llmAnalyzer := buildAnalyzer(cfg.LLMProvider, geminiClient, deepseekClient)
 
 	redisClient := redis.NewClient(&redis.Options{
-		Addr: cfg.RedisAddr,
-		DB:   cfg.RedisAnswersDB,
+		Addr:       cfg.RedisAddr,
+		DB:         cfg.RedisAnswersDB,
+		ClientName: "report-service",
 	})
 	defer redisClient.Close()
 
