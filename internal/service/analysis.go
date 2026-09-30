@@ -219,13 +219,7 @@ func (s *AnalysisService) scoreMCQ(
 		if questionID != "" {
 			details, err := s.questionClient.GetByID(ctx, questionID)
 			if err == nil {
-				selected := int(*answer.SelectedOptionIndex)
-				for idx, option := range details.Options {
-					if idx == selected && option.IsCorrect {
-						isCorrect = true
-						break
-					}
-				}
+				isCorrect = isSelectedOptionCorrect(item.Options, details.Options, int(*answer.SelectedOptionIndex))
 			}
 		}
 
@@ -334,13 +328,20 @@ func (s *AnalysisService) buildAnswerReviews(
 						options = append(options, option.Text)
 					}
 				}
-				for idx, option := range details.Options {
+				// Session options are shuffled, so locate the correct option by
+				// its text in the order the user actually saw.
+				for _, option := range details.Options {
 					if !option.IsCorrect {
 						continue
 					}
-					correct := idx
-					correctIndex = &correct
 					correctAnswer = option.Text
+					for idx, text := range options {
+						if sameOptionText(text, option.Text) {
+							correct := idx
+							correctIndex = &correct
+							break
+						}
+					}
 					break
 				}
 				if correctAnswer == "" {
@@ -569,4 +570,28 @@ func max(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// isSelectedOptionCorrect checks the user's choice against the correct option
+// stored in the question bank. Session options may be shuffled, so the choice
+// is matched by option text; index matching is only a fallback for legacy
+// sessions that were saved without options.
+func isSelectedOptionCorrect(sessionOptions []string, bankOptions []client.QuestionOption, selected int) bool {
+	if len(sessionOptions) > 0 {
+		if selected < 0 || selected >= len(sessionOptions) {
+			return false
+		}
+		for _, option := range bankOptions {
+			if option.IsCorrect && sameOptionText(sessionOptions[selected], option.Text) {
+				return true
+			}
+		}
+		return false
+	}
+
+	return selected >= 0 && selected < len(bankOptions) && bankOptions[selected].IsCorrect
+}
+
+func sameOptionText(a, b string) bool {
+	return strings.TrimSpace(a) == strings.TrimSpace(b)
 }
