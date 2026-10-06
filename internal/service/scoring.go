@@ -93,6 +93,7 @@ func finalizeAnalysisScores(
 			CodingScore:       codingScore,
 			SoftSkillsScore:   softSkillsScore,
 			Comments:          analysis.Comments,
+			SummaryPublic:     analysis.SummaryPublic,
 			Strengths:         analysis.Strengths,
 			Weaknesses:        analysis.Weaknesses,
 			Recommendations:   analysis.Recommendations,

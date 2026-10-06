@@ -13,16 +13,18 @@ import (
 )
 
 type analysisMetadata struct {
-	OverallScore            int                `json:"overall_score"`
-	AlgorithmScore          int                `json:"algorithm_score"`
-	ArchitectureScore       int                `json:"architecture_score"`
-	CodingScore             int                `json:"coding_score"`
-	SoftSkillsScore         int                `json:"soft_skills_score"`
-	AlgorithmPassed         bool               `json:"algorithm_passed"`
-	ArchitecturePassed      bool               `json:"architecture_passed"`
-	CodingPassed            bool               `json:"coding_passed"`
-	SoftSkillsPassed        bool               `json:"soft_skills_passed"`
-	Comments                string             `json:"comments"`
+	OverallScore       int    `json:"overall_score"`
+	AlgorithmScore     int    `json:"algorithm_score"`
+	ArchitectureScore  int    `json:"architecture_score"`
+	CodingScore        int    `json:"coding_score"`
+	SoftSkillsScore    int    `json:"soft_skills_score"`
+	AlgorithmPassed    bool   `json:"algorithm_passed"`
+	ArchitecturePassed bool   `json:"architecture_passed"`
+	CodingPassed       bool   `json:"coding_passed"`
+	SoftSkillsPassed   bool   `json:"soft_skills_passed"`
+	Comments           string `json:"comments"`
+	// SummaryPublic is the only text Basic users see: no topics or questions.
+	SummaryPublic           string             `json:"summary_public"`
 	InterviewTitle          string             `json:"interview_title"`
 	InterviewLevel          string             `json:"interview_level"`
 	InterviewSpecialization string             `json:"interview_specialization"`
@@ -165,6 +167,7 @@ func (s *AnalysisService) Generate(
 		CodingPassed:            finalized.Passed.Coding,
 		SoftSkillsPassed:        finalized.Passed.SoftSkills,
 		Comments:                analysis.Comments,
+		SummaryPublic:           analysis.SummaryPublic,
 		InterviewTitle:          interview.Title,
 		InterviewLevel:          interview.Level,
 		InterviewSpecialization: interview.Specialization,
@@ -474,6 +477,7 @@ Return ONLY valid JSON with this exact schema:
   "coding_score": 0,
   "soft_skills_score": 0,
   "comments": "2-4 sentence overall verdict in Russian: level readiness and the main conclusion",
+  "summary_public": "1-2 sentences in Russian with a general verdict only (readiness for the level, overall impression). It MUST NOT name any topic, technology, concept, question or task, and must not hint at what exactly was wrong",
   "strengths": "2-4 lines in Russian, each line starts with \"- \"",
   "weaknesses": "2-4 lines in Russian, each line starts with \"- \": weak topics in general terms, without quoting the questions",
   "recommendations": "3-5 lines in Russian, each line starts with \"- \": concrete topics and actions to study next"
@@ -554,6 +558,7 @@ func fallbackAnalysis(mcqCorrect, mcqTotal int, taskSummary string, answeredTask
 		CodingScore:       codingScore,
 		SoftSkillsScore:   0,
 		Comments:          "Автоматическая оценка на основе результатов теста. AI-анализ временно недоступен.",
+		SummaryPublic:     "Автоматическая оценка на основе результатов теста. AI-анализ временно недоступен.",
 		Strengths:         "Ответы на теоретические вопросы зафиксированы.",
 		Weaknesses:        "Требуется ручная проверка практических задач.",
 		Recommendations:   "Повторите темы с ошибками и пересдайте тренировку.",
