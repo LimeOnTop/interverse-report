@@ -2,11 +2,15 @@ package service
 
 import (
 	"strings"
+	"time"
 
 	"github.com/LimeOnTop/interverse-report/internal/client"
 )
 
 const passScoreThreshold = 60
+
+// llmBudget keeps report generation under the 120s gateway/nginx timeout.
+const llmBudget = 95 * time.Second
 
 type sectionPassFlags struct {
 	Algorithm    bool `json:"algorithm_passed"`
@@ -35,6 +39,7 @@ func finalizeAnalysisScores(
 	analysis client.GeminiAnalysis,
 	mcqTotal int,
 	answeredTasks int,
+	taskTotal int,
 ) finalizedScores {
 	hasMCQ := mcqTotal > 0
 	hasTasks := answeredTasks > 0
@@ -61,21 +66,23 @@ func finalizeAnalysisScores(
 		codingPassed = codingScore >= passScoreThreshold
 	}
 
-	passedScores := make([]int, 0, 2)
-	if theoryPassed {
-		passedScores = append(passedScores, theoryScore)
+	// Overall is the real result: the mean of every section the session had,
+	// failed ones included (a 21% theory must not show up as 0% overall).
+	sectionScores := make([]int, 0, 2)
+	if hasMCQ {
+		sectionScores = append(sectionScores, theoryScore)
 	}
-	if codingPassed {
-		passedScores = append(passedScores, codingScore)
+	if taskTotal > 0 {
+		sectionScores = append(sectionScores, codingScore)
 	}
 
 	overallScore := 0
-	if len(passedScores) > 0 {
+	if len(sectionScores) > 0 {
 		sum := 0
-		for _, score := range passedScores {
+		for _, score := range sectionScores {
 			sum += score
 		}
-		overallScore = sum / len(passedScores)
+		overallScore = int(float64(sum)/float64(len(sectionScores)) + 0.5)
 	}
 
 	return finalizedScores{

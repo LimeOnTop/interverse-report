@@ -128,7 +128,11 @@ func main() {
 	}()
 
 	answerCache := service.NewAnswerCache(redisClient)
-	analysisService := service.NewAnalysisService(reportRepository, interviewClient, questionClient, llmAnalyzer, answerCache)
+	var explainer service.JSONCompleter
+	if deepseekClient.Enabled() {
+		explainer = deepseekClient
+	}
+	analysisService := service.NewAnalysisService(reportRepository, interviewClient, questionClient, llmAnalyzer, explainer, answerCache)
 	reportController := controller.NewReportController(reportService, analysisService)
 
 	lis, err := net.Listen("tcp", net.JoinHostPort("", cfg.Port))

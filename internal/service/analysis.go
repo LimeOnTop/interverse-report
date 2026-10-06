@@ -30,6 +30,7 @@ type analysisMetadata struct {
 	MCQCorrect              int                `json:"mcq_correct"`
 	MCQTotal                int                `json:"mcq_total"`
 	AnswerReviews           []answerReviewItem `json:"answer_reviews,omitempty"`
+	WeakPoints              []weakPoint        `json:"weak_points"`
 }
 
 // answerReviewItem is persisted so the report UI can show user vs correct/reference answers.
@@ -62,6 +63,7 @@ type AnalysisService struct {
 	interviewClient *client.InterviewClient
 	questionClient  *client.QuestionClient
 	geminiClient    client.Analyzer
+	explainer       JSONCompleter
 	answerCache     *AnswerCache
 }
 
@@ -70,6 +72,7 @@ func NewAnalysisService(
 	interviewClient *client.InterviewClient,
 	questionClient *client.QuestionClient,
 	geminiClient client.Analyzer,
+	explainer JSONCompleter,
 	answerCache *AnswerCache,
 ) *AnalysisService {
 	return &AnalysisService{
@@ -77,6 +80,7 @@ func NewAnalysisService(
 		interviewClient: interviewClient,
 		questionClient:  questionClient,
 		geminiClient:    geminiClient,
+		explainer:       explainer,
 		answerCache:     answerCache,
 	}
 }
@@ -122,19 +126,33 @@ func (s *AnalysisService) Generate(
 	answeredTasks := countAnsweredTasks(tasks, answerByStep)
 	answerReviews := s.buildAnswerReviews(ctx, questions, tasks, answerByStep)
 
+	// Weak point explanations run alongside the main analysis; both share a
+	// budget below the gateway/nginx timeout so the user never gets a 502.
+	llmCtx, cancel := context.WithTimeout(ctx, llmBudget)
+	defer cancel()
+
+	candidates := weakPointCandidates(answerReviews)
+	verdictsCh := make(chan map[string]weakPointVerdict, 1)
+	go func() {
+		verdictsCh <- explainWeakPoints(llmCtx, s.explainer, interview, candidates)
+	}()
+
 	prompt := buildAnalysisPrompt(interview, mcqSummary, mcqCorrect, mcqTotal, taskSummary, answeredTasks)
-	analysis, err := s.geminiClient.Analyze(ctx, prompt)
+	analysis, err := s.geminiClient.Analyze(llmCtx, prompt)
 	if err != nil {
-		log.Printf("gemini analysis failed: %v", err)
-		analysis = fallbackAnalysis(mcqCorrect, mcqTotal, taskSummary, answeredTasks)
+		log.Printf("llm analysis failed: %v", err)
+		analysis = fallbackAnalysis(mcqCorrect, mcqTotal, taskSummary, answeredTasks, len(tasks))
+	}
+	verdicts := <-verdictsCh
+
+	if mcqTotal > 0 {
+		// Theory is objective: always take it from the actual MCQ accuracy.
+		analysis.AlgorithmScore = percent(mcqCorrect, mcqTotal)
 	}
 
-	if mcqTotal > 0 && analysis.AlgorithmScore == 0 {
-		analysis.AlgorithmScore = int(float64(mcqCorrect) / float64(mcqTotal) * 100)
-	}
-
-	finalized := finalizeAnalysisScores(analysis, mcqTotal, answeredTasks)
+	finalized := finalizeAnalysisScores(analysis, mcqTotal, answeredTasks, len(tasks))
 	analysis = finalized.Analysis
+	weakPoints := buildWeakPoints(candidates, verdicts, finalized.Passed.Coding)
 
 	metadata := analysisMetadata{
 		OverallScore:            analysis.OverallScore,
@@ -154,6 +172,7 @@ func (s *AnalysisService) Generate(
 		MCQCorrect:              mcqCorrect,
 		MCQTotal:                mcqTotal,
 		AnswerReviews:           answerReviews,
+		WeakPoints:              weakPoints,
 	}
 
 	notesJSON, err := json.Marshal(metadata)
@@ -431,10 +450,7 @@ func buildAnalysisPrompt(
 	taskSummary string,
 	answeredTasks int,
 ) string {
-	mcqPercent := 0
-	if mcqTotal > 0 {
-		mcqPercent = int(float64(mcqCorrect) / float64(mcqTotal) * 100)
-	}
+	mcqPercent := percent(mcqCorrect, mcqTotal)
 
 	return fmt.Sprintf(`You are a senior technical interviewer evaluating a training session.
 
@@ -457,10 +473,10 @@ Return ONLY valid JSON with this exact schema:
   "architecture_score": 0,
   "coding_score": 0,
   "soft_skills_score": 0,
-  "comments": "detailed feedback in Russian",
-  "strengths": "strengths in Russian",
-  "weaknesses": "weaknesses in Russian",
-  "recommendations": "recommendations in Russian"
+  "comments": "2-4 sentence overall verdict in Russian: level readiness and the main conclusion",
+  "strengths": "2-4 lines in Russian, each line starts with \"- \"",
+  "weaknesses": "2-4 lines in Russian, each line starts with \"- \": weak topics in general terms, without quoting the questions",
+  "recommendations": "3-5 lines in Russian, each line starts with \"- \": concrete topics and actions to study next"
 }
 
 Scoring rules:
@@ -469,8 +485,9 @@ Scoring rules:
 - architecture_score: always 0 — architecture stage is not available yet
 - coding_score: practical task solutions only (ignore MCQ)
 - soft_skills_score: always 0 — soft skills stage is not available yet
-- overall_score will be recalculated server-side from passed theory/coding only; still provide your best estimate
-- Sections below %d or not attempted are treated as failed and excluded from overall score
+- coding_score: judge correctness and completeness of each solution against the reference answer; unanswered tasks score 0
+- overall_score will be recalculated server-side as the average of theory and coding; still provide your best estimate
+- A section below %d is marked as not passed
 - Use Russian for all text fields
 - Be constructive and specific`,
 		interview.Title,
@@ -522,11 +539,8 @@ func isFallbackReport(comments string) bool {
 	return strings.Contains(comments, "AI-анализ временно недоступен")
 }
 
-func fallbackAnalysis(mcqCorrect, mcqTotal int, taskSummary string, answeredTasks int) client.GeminiAnalysis {
-	mcqScore := 0
-	if mcqTotal > 0 {
-		mcqScore = int(float64(mcqCorrect) / float64(mcqTotal) * 100)
-	}
+func fallbackAnalysis(mcqCorrect, mcqTotal int, taskSummary string, answeredTasks, taskTotal int) client.GeminiAnalysis {
+	mcqScore := percent(mcqCorrect, mcqTotal)
 
 	codingScore := 0
 	if answeredTasks > 0 {
@@ -546,7 +560,7 @@ func fallbackAnalysis(mcqCorrect, mcqTotal int, taskSummary string, answeredTask
 	}
 	_ = taskSummary
 
-	return finalizeAnalysisScores(raw, mcqTotal, answeredTasks).Analysis
+	return finalizeAnalysisScores(raw, mcqTotal, answeredTasks, taskTotal).Analysis
 }
 
 func scoresFromNotes(notes string) (usecase.AnalysisScoresDTO, error) {
@@ -563,6 +577,13 @@ func scoresFromNotes(notes string) (usecase.AnalysisScoresDTO, error) {
 		SoftSkillsScore:   metadata.SoftSkillsScore,
 		Comments:          metadata.Comments,
 	}, nil
+}
+
+func percent(part, total int) int {
+	if total <= 0 {
+		return 0
+	}
+	return int(float64(part)/float64(total)*100 + 0.5)
 }
 
 func max(a, b int) int {

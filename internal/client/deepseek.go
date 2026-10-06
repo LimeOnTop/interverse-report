@@ -47,21 +47,35 @@ func (c *DeepSeekClient) Enabled() bool {
 }
 
 func (c *DeepSeekClient) Analyze(ctx context.Context, prompt string) (GeminiAnalysis, error) {
+	// Single attempt here — multi-attempt + Gemini failover is owned by FallbackAnalyzer.
+	text, err := c.CompleteJSON(
+		ctx,
+		"You are a senior technical interviewer. Return ONLY valid JSON matching the schema requested by the user. Include the word JSON in the response schema.",
+		prompt,
+	)
+	if err != nil {
+		return GeminiAnalysis{}, err
+	}
+
+	var analysis GeminiAnalysis
+	if err := json.Unmarshal([]byte(text), &analysis); err != nil {
+		return GeminiAnalysis{}, fmt.Errorf("parse deepseek json: %w; raw=%s", err, text)
+	}
+	normalizeScores(&analysis)
+	return analysis, nil
+}
+
+// CompleteJSON sends one chat request in JSON mode and returns the raw JSON text.
+func (c *DeepSeekClient) CompleteJSON(ctx context.Context, system, prompt string) (string, error) {
 	if !c.Enabled() {
-		return GeminiAnalysis{}, fmt.Errorf("deepseek api key is not configured")
+		return "", fmt.Errorf("deepseek api key is not configured")
 	}
 
 	payload := map[string]any{
 		"model": c.model,
 		"messages": []map[string]string{
-			{
-				"role":    "system",
-				"content": "You are a senior technical interviewer. Return ONLY valid JSON matching the schema requested by the user. Include the word JSON in the response schema.",
-			},
-			{
-				"role":    "user",
-				"content": prompt,
-			},
+			{"role": "system", "content": system},
+			{"role": "user", "content": prompt},
 		},
 		"temperature": 0.2,
 		"response_format": map[string]string{
@@ -71,33 +85,28 @@ func (c *DeepSeekClient) Analyze(ctx context.Context, prompt string) (GeminiAnal
 
 	body, err := json.Marshal(payload)
 	if err != nil {
-		return GeminiAnalysis{}, fmt.Errorf("marshal deepseek request: %w", err)
+		return "", fmt.Errorf("marshal deepseek request: %w", err)
 	}
 
-	// Single attempt here — multi-attempt + Gemini failover is owned by FallbackAnalyzer.
-	return c.analyzeOnce(ctx, body)
-}
-
-func (c *DeepSeekClient) analyzeOnce(ctx context.Context, body []byte) (GeminiAnalysis, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
-		return GeminiAnalysis{}, fmt.Errorf("create deepseek request: %w", err)
+		return "", fmt.Errorf("create deepseek request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return GeminiAnalysis{}, fmt.Errorf("call deepseek api: %w", err)
+		return "", fmt.Errorf("call deepseek api: %w", err)
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return GeminiAnalysis{}, fmt.Errorf("read deepseek response: %w", err)
+		return "", fmt.Errorf("read deepseek response: %w", err)
 	}
 	if resp.StatusCode >= http.StatusBadRequest {
-		return GeminiAnalysis{}, fmt.Errorf("deepseek api status %d: %s", resp.StatusCode, string(respBody))
+		return "", fmt.Errorf("deepseek api status %d: %s", resp.StatusCode, string(respBody))
 	}
 
 	var envelope struct {
@@ -111,20 +120,14 @@ func (c *DeepSeekClient) analyzeOnce(ctx context.Context, body []byte) (GeminiAn
 		} `json:"error"`
 	}
 	if err := json.Unmarshal(respBody, &envelope); err != nil {
-		return GeminiAnalysis{}, fmt.Errorf("parse deepseek envelope: %w", err)
+		return "", fmt.Errorf("parse deepseek envelope: %w", err)
 	}
 	if envelope.Error != nil && envelope.Error.Message != "" {
-		return GeminiAnalysis{}, fmt.Errorf("deepseek error: %s", envelope.Error.Message)
+		return "", fmt.Errorf("deepseek error: %s", envelope.Error.Message)
 	}
 	if len(envelope.Choices) == 0 || strings.TrimSpace(envelope.Choices[0].Message.Content) == "" {
-		return GeminiAnalysis{}, fmt.Errorf("deepseek returned empty response")
+		return "", fmt.Errorf("deepseek returned empty response")
 	}
 
-	text := sanitizeJSON(envelope.Choices[0].Message.Content)
-	var analysis GeminiAnalysis
-	if err := json.Unmarshal([]byte(text), &analysis); err != nil {
-		return GeminiAnalysis{}, fmt.Errorf("parse deepseek json: %w; raw=%s", err, text)
-	}
-	normalizeScores(&analysis)
-	return analysis, nil
+	return sanitizeJSON(envelope.Choices[0].Message.Content), nil
 }
