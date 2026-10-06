@@ -24,6 +24,7 @@ type GeminiAnalysis struct {
 	CodingScore       int    `json:"coding_score"`
 	SoftSkillsScore   int    `json:"soft_skills_score"`
 	Comments          string `json:"comments"`
+	SummaryPublic     string `json:"summary_public"`
 	Strengths         string `json:"strengths"`
 	Weaknesses        string `json:"weaknesses"`
 	Recommendations   string `json:"recommendations"`
