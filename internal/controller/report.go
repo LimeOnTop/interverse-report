@@ -13,7 +13,21 @@ import (
 	"github.com/LimeOnTop/interverse-report/internal/entity"
 	"github.com/LimeOnTop/interverse-report/internal/service"
 	"github.com/LimeOnTop/interverse-report/internal/usecase"
+	"google.golang.org/grpc/metadata"
 )
+
+// subscriptionPlanHeader is set by the gateway; Basic ("free") reports are
+// built without the LLM. Callers that do not send it get the full analysis.
+const subscriptionPlanHeader = "x-subscription-plan"
+
+func fullAnalysisRequested(ctx context.Context) bool {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return true
+	}
+	values := md.Get(subscriptionPlanHeader)
+	return len(values) == 0 || !strings.EqualFold(strings.TrimSpace(values[0]), "free")
+}
 
 type ReportController struct {
 	pb.UnimplementedReportServiceServer
@@ -89,7 +103,7 @@ func (c *ReportController) GenerateReport(ctx context.Context, req *pb.GenerateR
 		answers = append(answers, input)
 	}
 
-	created, scores, err := c.analysis.Generate(ctx, req.GetInterviewId(), userID, answers)
+	created, scores, err := c.analysis.Generate(ctx, req.GetInterviewId(), userID, answers, fullAnalysisRequested(ctx))
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			return nil, fmt.Errorf("context canceled: %w", err)

@@ -33,6 +33,8 @@ type analysisMetadata struct {
 	MCQTotal                int                `json:"mcq_total"`
 	AnswerReviews           []answerReviewItem `json:"answer_reviews,omitempty"`
 	WeakPoints              []weakPoint        `json:"weak_points"`
+	// AnalysisMode is "basic" for reports built without the LLM.
+	AnalysisMode string `json:"analysis_mode,omitempty"`
 }
 
 // answerReviewItem is persisted so the report UI can show user vs correct/reference answers.
@@ -92,6 +94,7 @@ func (s *AnalysisService) Generate(
 	interviewID string,
 	userID int64,
 	answers []AnswerInput,
+	fullAnalysis bool,
 ) (usecase.ReportDTO, usecase.AnalysisScoresDTO, error) {
 	answers, err := s.resolveAnswers(ctx, interviewID, answers)
 	if err != nil {
@@ -101,7 +104,9 @@ func (s *AnalysisService) Generate(
 	existing, err := s.repository.GetByInterviewID(ctx, interviewID)
 	if err == nil {
 		scores, parseErr := scoresFromNotes(existing.Notes)
-		if parseErr == nil && !isFallbackReport(scores.Comments) {
+		// A Basic report is upgraded to the LLM one once the user has Pro.
+		upgrade := fullAnalysis && analysisModeFromNotes(existing.Notes) == analysisModeBasic
+		if parseErr == nil && !isFallbackReport(scores.Comments) && !upgrade {
 			return toDTO(existing), scores, nil
 		}
 		if deleteErr := s.repository.Delete(ctx, existing.ID); deleteErr != nil {
@@ -128,24 +133,17 @@ func (s *AnalysisService) Generate(
 	answeredTasks := countAnsweredTasks(tasks, answerByStep)
 	answerReviews := s.buildAnswerReviews(ctx, questions, tasks, answerByStep)
 
-	// Weak point explanations run alongside the main analysis; both share a
-	// budget below the gateway/nginx timeout so the user never gets a 502.
-	llmCtx, cancel := context.WithTimeout(ctx, llmBudget)
-	defer cancel()
-
 	candidates := weakPointCandidates(answerReviews)
-	verdictsCh := make(chan map[string]weakPointVerdict, 1)
-	go func() {
-		verdictsCh <- explainWeakPoints(llmCtx, s.explainer, interview, candidates)
-	}()
-
-	prompt := buildAnalysisPrompt(interview, mcqSummary, mcqCorrect, mcqTotal, taskSummary, answeredTasks)
-	analysis, err := s.geminiClient.Analyze(llmCtx, prompt)
-	if err != nil {
-		log.Printf("llm analysis failed: %v", err)
-		analysis = fallbackAnalysis(mcqCorrect, mcqTotal, taskSummary, answeredTasks, len(tasks))
+	var analysis client.GeminiAnalysis
+	verdicts := map[string]weakPointVerdict{}
+	analysisMode := ""
+	if fullAnalysis {
+		analysis, verdicts = s.analyzeWithLLM(ctx, interview, candidates, mcqSummary, mcqCorrect, mcqTotal, taskSummary, answeredTasks, len(tasks))
+	} else {
+		// Basic plan: no LLM calls, the report is scored locally.
+		analysis = basicAnalysis(interview, answerReviews, mcqCorrect, mcqTotal)
+		analysisMode = analysisModeBasic
 	}
-	verdicts := <-verdictsCh
 
 	if mcqTotal > 0 {
 		// Theory is objective: always take it from the actual MCQ accuracy.
@@ -176,6 +174,7 @@ func (s *AnalysisService) Generate(
 		MCQTotal:                mcqTotal,
 		AnswerReviews:           answerReviews,
 		WeakPoints:              weakPoints,
+		AnalysisMode:            analysisMode,
 	}
 
 	notesJSON, err := json.Marshal(metadata)
@@ -213,6 +212,35 @@ func (s *AnalysisService) Generate(
 	}
 
 	return toDTO(created), scores, nil
+}
+
+// analyzeWithLLM runs the main analysis and weak point explanations in
+// parallel; both share a budget below the gateway/nginx timeout so the user
+// never gets a 502.
+func (s *AnalysisService) analyzeWithLLM(
+	ctx context.Context,
+	interview client.InterviewSummary,
+	candidates []answerReviewItem,
+	mcqSummary string,
+	mcqCorrect, mcqTotal int,
+	taskSummary string,
+	answeredTasks, taskTotal int,
+) (client.GeminiAnalysis, map[string]weakPointVerdict) {
+	llmCtx, cancel := context.WithTimeout(ctx, llmBudget)
+	defer cancel()
+
+	verdictsCh := make(chan map[string]weakPointVerdict, 1)
+	go func() {
+		verdictsCh <- explainWeakPoints(llmCtx, s.explainer, interview, candidates)
+	}()
+
+	prompt := buildAnalysisPrompt(interview, mcqSummary, mcqCorrect, mcqTotal, taskSummary, answeredTasks)
+	analysis, err := s.geminiClient.Analyze(llmCtx, prompt)
+	if err != nil {
+		log.Printf("llm analysis failed: %v", err)
+		analysis = fallbackAnalysis(mcqCorrect, mcqTotal, taskSummary, answeredTasks, taskTotal)
+	}
+	return analysis, <-verdictsCh
 }
 
 func (s *AnalysisService) scoreMCQ(
@@ -582,6 +610,14 @@ func scoresFromNotes(notes string) (usecase.AnalysisScoresDTO, error) {
 		SoftSkillsScore:   metadata.SoftSkillsScore,
 		Comments:          metadata.Comments,
 	}, nil
+}
+
+func analysisModeFromNotes(notes string) string {
+	var metadata analysisMetadata
+	if err := json.Unmarshal([]byte(notes), &metadata); err != nil {
+		return ""
+	}
+	return metadata.AnalysisMode
 }
 
 func percent(part, total int) int {
