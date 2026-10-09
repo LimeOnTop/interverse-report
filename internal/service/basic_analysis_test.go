@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/LimeOnTop/interverse-report/internal/client"
+	"github.com/LimeOnTop/interverse-report/internal/usecase"
 )
 
 func TestTaskCoverageScoreUsesReferenceCode(t *testing.T) {
@@ -29,7 +29,7 @@ func TestBasicAnalysisHasNoTopics(t *testing.T) {
 		{ItemType: "question", IsCorrect: &wrong, Prompt: "Что такое горутина?"},
 		{ItemType: "task", UserAnswer: "Нет ответа", CorrectAnswer: "return a + b", Prompt: "Сложите числа"},
 	}
-	analysis := basicAnalysis(client.InterviewSummary{Level: "junior"}, reviews, 1, 2)
+	analysis := basicAnalysis(usecase.InterviewSummary{Level: "junior"}, reviews, 1, 2)
 
 	if analysis.AlgorithmScore != 50 || analysis.CodingScore != 0 {
 		t.Fatalf("scores = %d/%d, want 50/0", analysis.AlgorithmScore, analysis.CodingScore)

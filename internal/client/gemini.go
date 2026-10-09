@@ -12,23 +12,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/LimeOnTop/interverse-report/internal/usecase"
 	"golang.org/x/net/proxy"
 )
 
 const defaultGeminiModel = "gemini-flash-latest"
 
-type GeminiAnalysis struct {
-	OverallScore      int    `json:"overall_score"`
-	AlgorithmScore    int    `json:"algorithm_score"`
-	ArchitectureScore int    `json:"architecture_score"`
-	CodingScore       int    `json:"coding_score"`
-	SoftSkillsScore   int    `json:"soft_skills_score"`
-	Comments          string `json:"comments"`
-	SummaryPublic     string `json:"summary_public"`
-	Strengths         string `json:"strengths"`
-	Weaknesses        string `json:"weaknesses"`
-	Recommendations   string `json:"recommendations"`
-}
+type GeminiAnalysis = usecase.GeminiAnalysis
 
 type GeminiClient struct {
 	apiKey     string

@@ -1,9 +1,11 @@
-package usecase
+package repository
 
 import (
 	"context"
 	"database/sql"
 	"fmt"
+
+	"github.com/LimeOnTop/interverse-report/internal/usecase"
 )
 
 type ctxKey int
@@ -36,7 +38,7 @@ func NewSQLTxManager(db *sql.DB) *SQLTxManager {
 	return &SQLTxManager{db: db}
 }
 
-var _ TxManager = (*SQLTxManager)(nil)
+var _ usecase.TxManager = (*SQLTxManager)(nil)
 
 func (m *SQLTxManager) WithinTransaction(ctx context.Context, fn func(ctx context.Context) error) error {
 	tx, err := m.db.BeginTx(ctx, nil)
@@ -44,6 +46,7 @@ func (m *SQLTxManager) WithinTransaction(ctx context.Context, fn func(ctx contex
 		return fmt.Errorf("begin tx: %w", err)
 	}
 
+	defer tx.Rollback()
 	txCtx := ContextWithTx(ctx, tx)
 	if err := fn(txCtx); err != nil {
 		_ = tx.Rollback()

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/LimeOnTop/interverse-report/internal/client"
+	"github.com/LimeOnTop/interverse-report/internal/usecase"
 )
 
 const passScoreThreshold = 60
@@ -20,11 +20,11 @@ type sectionPassFlags struct {
 }
 
 type finalizedScores struct {
-	Analysis client.GeminiAnalysis
+	Analysis usecase.GeminiAnalysis
 	Passed   sectionPassFlags
 }
 
-func countAnsweredTasks(tasks []client.SessionItem, answers map[string]AnswerInput) int {
+func countAnsweredTasks(tasks []usecase.SessionItem, answers map[string]usecase.AnswerInput) int {
 	count := 0
 	for _, item := range tasks {
 		answer, ok := answers[item.ID]
@@ -36,7 +36,7 @@ func countAnsweredTasks(tasks []client.SessionItem, answers map[string]AnswerInp
 }
 
 func finalizeAnalysisScores(
-	analysis client.GeminiAnalysis,
+	analysis usecase.GeminiAnalysis,
 	mcqTotal int,
 	answeredTasks int,
 	taskTotal int,
@@ -86,7 +86,7 @@ func finalizeAnalysisScores(
 	}
 
 	return finalizedScores{
-		Analysis: client.GeminiAnalysis{
+		Analysis: usecase.GeminiAnalysis{
 			OverallScore:      overallScore,
 			AlgorithmScore:    theoryScore,
 			ArchitectureScore: architectureScore,

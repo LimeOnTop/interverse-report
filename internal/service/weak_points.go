@@ -9,13 +9,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/LimeOnTop/interverse-report/internal/client"
+	"github.com/LimeOnTop/interverse-report/internal/usecase"
 )
 
-// JSONCompleter is the LLM call used to explain weak points (DeepSeek).
-type JSONCompleter interface {
-	CompleteJSON(ctx context.Context, system, prompt string) (string, error)
-}
+// usecase.JSONCompleter is the LLM call used to explain weak points (DeepSeek).
 
 // weakPoint is a wrong question or a failed task with an explanation of the
 // right answer. Stored in report notes; the gateway hides it from Basic users.
@@ -57,8 +54,8 @@ func weakPointCandidates(reviews []answerReviewItem) []answerReviewItem {
 // long list does not push report generation past the gateway timeout.
 func explainWeakPoints(
 	ctx context.Context,
-	completer JSONCompleter,
-	interview client.InterviewSummary,
+	completer usecase.JSONCompleter,
+	interview usecase.InterviewSummary,
 	candidates []answerReviewItem,
 ) map[string]weakPointVerdict {
 	verdicts := make(map[string]weakPointVerdict, len(candidates))
@@ -160,7 +157,7 @@ func habrSearchURL(topic string) string {
 
 const weakPointsSystemPrompt = "You are a senior technical interviewer and mentor. Return ONLY valid JSON matching the schema requested by the user."
 
-func buildWeakPointsPrompt(interview client.InterviewSummary, items []answerReviewItem) string {
+func buildWeakPointsPrompt(interview usecase.InterviewSummary, items []answerReviewItem) string {
 	type promptItem struct {
 		ID              string   `json:"id"`
 		Type            string   `json:"type"`

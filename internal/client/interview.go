@@ -6,32 +6,14 @@ import (
 	"strconv"
 
 	interviewpb "github.com/LimeOnTop/interverse-contracts/interview/gen"
+	"github.com/LimeOnTop/interverse-report/internal/usecase"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-type SessionItem struct {
-	ID         string
-	QuestionID string
-	ItemType   string
-	SortOrder  int32
-	Text       string
-	Technology string
-	Difficulty string
-	Category   string
-	Options    []string
-}
+type SessionItem = usecase.SessionItem
 
-type InterviewSummary struct {
-	ID             string
-	UserID         int64
-	Title          string
-	Description    string
-	Status         string
-	ScheduledAt    string
-	Level          string
-	Specialization string
-}
+type InterviewSummary = usecase.InterviewSummary
 
 type InterviewClient struct {
 	client interviewpb.InterviewServiceClient
@@ -123,3 +105,5 @@ func mapSessionItems(items []*interviewpb.SessionItem) []SessionItem {
 	}
 	return result
 }
+
+var _ usecase.InterviewReader = (*InterviewClient)(nil)

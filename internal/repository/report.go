@@ -19,8 +19,8 @@ func NewReportRepository(db *sql.DB) *ReportRepository {
 	return &ReportRepository{db: db}
 }
 
-func (r *ReportRepository) querier(ctx context.Context) usecase.DBTX {
-	return usecase.DBTXFromContext(ctx, r.db)
+func (r *ReportRepository) querier(ctx context.Context) DBTX {
+	return DBTXFromContext(ctx, r.db)
 }
 
 func (r *ReportRepository) Create(ctx context.Context, report entity.Report) (entity.Report, error) {
@@ -69,7 +69,7 @@ func (r *ReportRepository) GetByInterviewID(ctx context.Context, interviewID str
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return entity.Report{}, fmt.Errorf("get report by interview: not found")
+			return entity.Report{}, fmt.Errorf("get report by interview: %w", usecase.ErrNotFound)
 		}
 		return entity.Report{}, fmt.Errorf("get report by interview: %w", err)
 	}
@@ -133,7 +133,7 @@ func (r *ReportRepository) Update(ctx context.Context, report entity.Report) (en
 		WHERE id = $10
 	`
 
-	_, err := r.querier(ctx).ExecContext(ctx, query,
+	result, err := r.querier(ctx).ExecContext(ctx, query,
 		report.OverallRating, report.TechnicalSkills, report.CommunicationSkills,
 		report.ProblemSolving, report.Strengths, report.Weaknesses,
 		report.Recommendations, report.Notes, report.UpdatedAt, report.ID,
@@ -142,6 +142,13 @@ func (r *ReportRepository) Update(ctx context.Context, report entity.Report) (en
 		return entity.Report{}, fmt.Errorf("update report: %w", err)
 	}
 
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return entity.Report{}, fmt.Errorf("update report rows: %w", err)
+	}
+	if affected == 0 {
+		return entity.Report{}, fmt.Errorf("update report: %w", usecase.ErrNotFound)
+	}
 	return report, nil
 }
 

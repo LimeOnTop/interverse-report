@@ -5,25 +5,14 @@ import (
 	"fmt"
 
 	questionpb "github.com/LimeOnTop/interverse-contracts/question/gen"
+	"github.com/LimeOnTop/interverse-report/internal/usecase"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-type QuestionOption struct {
-	Text      string
-	IsCorrect bool
-	SortOrder int32
-}
+type QuestionOption = usecase.QuestionOption
 
-type QuestionDetails struct {
-	ID         string
-	Text       string
-	Category   string
-	Difficulty string
-	Technology string
-	Answer     string
-	Options    []QuestionOption
-}
+type QuestionDetails = usecase.QuestionDetails
 
 type QuestionClient struct {
 	client questionpb.QuestionServiceClient
@@ -76,3 +65,5 @@ func (c *QuestionClient) GetByID(ctx context.Context, questionID string) (Questi
 		Options:    options,
 	}, nil
 }
+
+var _ usecase.QuestionReader = (*QuestionClient)(nil)

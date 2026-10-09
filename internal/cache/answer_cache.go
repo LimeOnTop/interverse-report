@@ -1,4 +1,4 @@
-package service
+package cache
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/LimeOnTop/interverse-report/internal/usecase"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -34,7 +35,7 @@ func answersKey(interviewID string) string {
 	return answersKeyPrefix + interviewID
 }
 
-func (c *AnswerCache) Save(ctx context.Context, interviewID string, answers []AnswerInput) error {
+func (c *AnswerCache) Save(ctx context.Context, interviewID string, answers []usecase.AnswerInput) error {
 	if interviewID == "" || len(answers) == 0 {
 		return nil
 	}
@@ -62,7 +63,7 @@ func (c *AnswerCache) Save(ctx context.Context, interviewID string, answers []An
 	return nil
 }
 
-func (c *AnswerCache) Load(ctx context.Context, interviewID string) ([]AnswerInput, error) {
+func (c *AnswerCache) Load(ctx context.Context, interviewID string) ([]usecase.AnswerInput, error) {
 	if interviewID == "" {
 		return nil, fmt.Errorf("load interview answers: interview id is required")
 	}
@@ -80,9 +81,9 @@ func (c *AnswerCache) Load(ctx context.Context, interviewID string) ([]AnswerInp
 		return nil, fmt.Errorf("unmarshal interview answers: %w", err)
 	}
 
-	answers := make([]AnswerInput, 0, len(payload))
+	answers := make([]usecase.AnswerInput, 0, len(payload))
 	for _, item := range payload {
-		answers = append(answers, AnswerInput{
+		answers = append(answers, usecase.AnswerInput{
 			StepID:              item.StepID,
 			QuestionID:          item.QuestionID,
 			ItemType:            item.ItemType,
@@ -93,3 +94,5 @@ func (c *AnswerCache) Load(ctx context.Context, interviewID string) ([]AnswerInp
 
 	return answers, nil
 }
+
+var _ usecase.AnswerCache = (*AnswerCache)(nil)

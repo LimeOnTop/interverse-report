@@ -4,13 +4,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/LimeOnTop/interverse-report/internal/client"
+	"github.com/LimeOnTop/interverse-report/internal/usecase"
 )
 
 func boolPtr(v bool) *bool { return &v }
 
 func TestOverallScoreIsRealMeanOfSections(t *testing.T) {
-	got := finalizeAnalysisScores(client.GeminiAnalysis{AlgorithmScore: 21, CodingScore: 0}, 19, 0, 1)
+	got := finalizeAnalysisScores(usecase.GeminiAnalysis{AlgorithmScore: 21, CodingScore: 0}, 19, 0, 1)
 	if got.Analysis.OverallScore != 11 {
 		t.Fatalf("overall = %d, want 11 (mean of 21 and 0)", got.Analysis.OverallScore)
 	}
@@ -18,7 +18,7 @@ func TestOverallScoreIsRealMeanOfSections(t *testing.T) {
 		t.Fatal("sections below threshold must not pass")
 	}
 
-	onlyTheory := finalizeAnalysisScores(client.GeminiAnalysis{AlgorithmScore: 21}, 19, 0, 0)
+	onlyTheory := finalizeAnalysisScores(usecase.GeminiAnalysis{AlgorithmScore: 21}, 19, 0, 0)
 	if onlyTheory.Analysis.OverallScore != 21 {
 		t.Fatalf("overall without tasks = %d, want 21", onlyTheory.Analysis.OverallScore)
 	}

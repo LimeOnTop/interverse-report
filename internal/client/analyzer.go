@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"log"
 	"time"
+
+	"github.com/LimeOnTop/interverse-report/internal/usecase"
 )
 
 // Analyzer is the shared LLM contract used by report analysis.
-type Analyzer interface {
-	Analyze(ctx context.Context, prompt string) (GeminiAnalysis, error)
-}
+type Analyzer = usecase.Analyzer
 
 const defaultPrimaryAttempts = 3
 

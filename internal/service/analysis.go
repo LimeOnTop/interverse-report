@@ -3,11 +3,11 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
 
-	"github.com/LimeOnTop/interverse-report/internal/client"
 	"github.com/LimeOnTop/interverse-report/internal/entity"
 	"github.com/LimeOnTop/interverse-report/internal/usecase"
 )
@@ -54,30 +54,22 @@ type answerReviewItem struct {
 	IsCorrect     *bool    `json:"is_correct,omitempty"`
 }
 
-type AnswerInput struct {
-	StepID              string
-	QuestionID          string
-	ItemType            string
-	SelectedOptionIndex *int32
-	TaskAnswer          string
-}
-
 type AnalysisService struct {
 	repository      usecase.ReportRepository
-	interviewClient *client.InterviewClient
-	questionClient  *client.QuestionClient
-	geminiClient    client.Analyzer
-	explainer       JSONCompleter
-	answerCache     *AnswerCache
+	interviewClient usecase.InterviewReader
+	questionClient  usecase.QuestionReader
+	geminiClient    usecase.Analyzer
+	explainer       usecase.JSONCompleter
+	answerCache     usecase.AnswerCache
 }
 
 func NewAnalysisService(
 	repository usecase.ReportRepository,
-	interviewClient *client.InterviewClient,
-	questionClient *client.QuestionClient,
-	geminiClient client.Analyzer,
-	explainer JSONCompleter,
-	answerCache *AnswerCache,
+	interviewClient usecase.InterviewReader,
+	questionClient usecase.QuestionReader,
+	geminiClient usecase.Analyzer,
+	explainer usecase.JSONCompleter,
+	answerCache usecase.AnswerCache,
 ) *AnalysisService {
 	return &AnalysisService{
 		repository:      repository,
@@ -93,37 +85,36 @@ func (s *AnalysisService) Generate(
 	ctx context.Context,
 	interviewID string,
 	userID int64,
-	answers []AnswerInput,
+	answers []usecase.AnswerInput,
 	fullAnalysis bool,
 ) (usecase.ReportDTO, usecase.AnalysisScoresDTO, error) {
-	answers, err := s.resolveAnswers(ctx, interviewID, answers)
-	if err != nil {
-		return usecase.ReportDTO{}, usecase.AnalysisScoresDTO{}, err
-	}
-
-	existing, err := s.repository.GetByInterviewID(ctx, interviewID)
-	if err == nil {
-		scores, parseErr := scoresFromNotes(existing.Notes)
-		// A Basic report is upgraded to the LLM one once the user has Pro.
-		upgrade := fullAnalysis && analysisModeFromNotes(existing.Notes) == analysisModeBasic
-		if parseErr == nil && !isFallbackReport(scores.Comments) && !upgrade {
-			return toDTO(existing), scores, nil
-		}
-		if deleteErr := s.repository.Delete(ctx, existing.ID); deleteErr != nil {
-			return usecase.ReportDTO{}, usecase.AnalysisScoresDTO{}, fmt.Errorf("replace fallback report: %w", deleteErr)
-		}
-	}
-
 	interview, questions, tasks, err := s.interviewClient.GetSessionContent(ctx, interviewID, userID)
 	if err != nil {
 		return usecase.ReportDTO{}, usecase.AnalysisScoresDTO{}, fmt.Errorf("load session: %w", err)
 	}
-
 	if interview.UserID != userID {
 		return usecase.ReportDTO{}, usecase.AnalysisScoresDTO{}, fmt.Errorf("generate report: forbidden")
 	}
+	existing, lookupErr := s.repository.GetByInterviewID(ctx, interviewID)
+	if lookupErr != nil && !errors.Is(lookupErr, usecase.ErrNotFound) {
+		return usecase.ReportDTO{}, usecase.AnalysisScoresDTO{}, fmt.Errorf("load report: %w", lookupErr)
+	}
+	if lookupErr == nil {
+		if existing.UserID != userID {
+			return usecase.ReportDTO{}, usecase.AnalysisScoresDTO{}, fmt.Errorf("generate report: forbidden")
+		}
+		scores, parseErr := scoresFromNotes(existing.Notes)
+		upgrade := fullAnalysis && analysisModeFromNotes(existing.Notes) == analysisModeBasic
+		if parseErr == nil && !isFallbackReport(scores.Comments) && !upgrade {
+			return toDTO(existing), scores, nil
+		}
+	}
+	answers, err = s.resolveAnswers(ctx, interviewID, answers)
+	if err != nil {
+		return usecase.ReportDTO{}, usecase.AnalysisScoresDTO{}, err
+	}
 
-	answerByStep := make(map[string]AnswerInput, len(answers))
+	answerByStep := make(map[string]usecase.AnswerInput, len(answers))
 	for _, answer := range answers {
 		answerByStep[answer.StepID] = answer
 	}
@@ -134,7 +125,7 @@ func (s *AnalysisService) Generate(
 	answerReviews := s.buildAnswerReviews(ctx, questions, tasks, answerByStep)
 
 	candidates := weakPointCandidates(answerReviews)
-	var analysis client.GeminiAnalysis
+	var analysis usecase.GeminiAnalysis
 	verdicts := map[string]weakPointVerdict{}
 	analysisMode := ""
 	if fullAnalysis {
@@ -182,7 +173,7 @@ func (s *AnalysisService) Generate(
 		return usecase.ReportDTO{}, usecase.AnalysisScoresDTO{}, fmt.Errorf("marshal analysis metadata: %w", err)
 	}
 
-	created, err := s.repository.Create(ctx, entity.Report{
+	replacement := entity.Report{
 		InterviewID:         interviewID,
 		UserID:              userID,
 		OverallRating:       fmt.Sprintf("%d", analysis.OverallScore),
@@ -193,7 +184,16 @@ func (s *AnalysisService) Generate(
 		Weaknesses:          analysis.Weaknesses,
 		Recommendations:     analysis.Recommendations,
 		Notes:               string(notesJSON),
-	})
+	}
+	var created entity.Report
+	if lookupErr == nil {
+		replacement.ID = existing.ID
+		replacement.CreatedAt = existing.CreatedAt
+		created, err = s.repository.Update(ctx, replacement)
+	} else {
+		created, err = s.repository.Create(ctx, replacement)
+	}
+
 	if err != nil {
 		return usecase.ReportDTO{}, usecase.AnalysisScoresDTO{}, fmt.Errorf("save report: %w", err)
 	}
@@ -219,13 +219,13 @@ func (s *AnalysisService) Generate(
 // never gets a 502.
 func (s *AnalysisService) analyzeWithLLM(
 	ctx context.Context,
-	interview client.InterviewSummary,
+	interview usecase.InterviewSummary,
 	candidates []answerReviewItem,
 	mcqSummary string,
 	mcqCorrect, mcqTotal int,
 	taskSummary string,
 	answeredTasks, taskTotal int,
-) (client.GeminiAnalysis, map[string]weakPointVerdict) {
+) (usecase.GeminiAnalysis, map[string]weakPointVerdict) {
 	llmCtx, cancel := context.WithTimeout(ctx, llmBudget)
 	defer cancel()
 
@@ -245,8 +245,8 @@ func (s *AnalysisService) analyzeWithLLM(
 
 func (s *AnalysisService) scoreMCQ(
 	ctx context.Context,
-	questions []client.SessionItem,
-	answers map[string]AnswerInput,
+	questions []usecase.SessionItem,
+	answers map[string]usecase.AnswerInput,
 ) (string, int, int) {
 	var builder strings.Builder
 	correct := 0
@@ -297,8 +297,8 @@ func (s *AnalysisService) scoreMCQ(
 
 func (s *AnalysisService) buildTaskSummary(
 	ctx context.Context,
-	tasks []client.SessionItem,
-	answers map[string]AnswerInput,
+	tasks []usecase.SessionItem,
+	answers map[string]usecase.AnswerInput,
 ) string {
 	var builder strings.Builder
 
@@ -340,8 +340,8 @@ func (s *AnalysisService) buildTaskSummary(
 
 func (s *AnalysisService) buildAnswerReviews(
 	ctx context.Context,
-	questions, tasks []client.SessionItem,
-	answers map[string]AnswerInput,
+	questions, tasks []usecase.SessionItem,
+	answers map[string]usecase.AnswerInput,
 ) []answerReviewItem {
 	reviews := make([]answerReviewItem, 0, len(questions)+len(tasks))
 
@@ -475,7 +475,7 @@ func (s *AnalysisService) buildAnswerReviews(
 }
 
 func buildAnalysisPrompt(
-	interview client.InterviewSummary,
+	interview usecase.InterviewSummary,
 	mcqSummary string,
 	mcqCorrect, mcqTotal int,
 	taskSummary string,
@@ -540,8 +540,8 @@ Scoring rules:
 func (s *AnalysisService) resolveAnswers(
 	ctx context.Context,
 	interviewID string,
-	answers []AnswerInput,
-) ([]AnswerInput, error) {
+	answers []usecase.AnswerInput,
+) ([]usecase.AnswerInput, error) {
 	if len(answers) > 0 {
 		if s.answerCache != nil {
 			if err := s.answerCache.Save(ctx, interviewID, answers); err != nil {
@@ -571,7 +571,7 @@ func isFallbackReport(comments string) bool {
 	return strings.Contains(comments, "AI-анализ временно недоступен")
 }
 
-func fallbackAnalysis(mcqCorrect, mcqTotal int, taskSummary string, answeredTasks, taskTotal int) client.GeminiAnalysis {
+func fallbackAnalysis(mcqCorrect, mcqTotal int, taskSummary string, answeredTasks, taskTotal int) usecase.GeminiAnalysis {
 	mcqScore := percent(mcqCorrect, mcqTotal)
 
 	codingScore := 0
@@ -579,7 +579,7 @@ func fallbackAnalysis(mcqCorrect, mcqTotal int, taskSummary string, answeredTask
 		codingScore = 50
 	}
 
-	raw := client.GeminiAnalysis{
+	raw := usecase.GeminiAnalysis{
 		OverallScore:      0,
 		AlgorithmScore:    mcqScore,
 		ArchitectureScore: 0,
@@ -638,7 +638,7 @@ func max(a, b int) int {
 // stored in the question bank. Session options may be shuffled, so the choice
 // is matched by option text; index matching is only a fallback for legacy
 // sessions that were saved without options.
-func isSelectedOptionCorrect(sessionOptions []string, bankOptions []client.QuestionOption, selected int) bool {
+func isSelectedOptionCorrect(sessionOptions []string, bankOptions []usecase.QuestionOption, selected int) bool {
 	if len(sessionOptions) > 0 {
 		if selected < 0 || selected >= len(sessionOptions) {
 			return false
@@ -657,3 +657,5 @@ func isSelectedOptionCorrect(sessionOptions []string, bankOptions []client.Quest
 func sameOptionText(a, b string) bool {
 	return strings.TrimSpace(a) == strings.TrimSpace(b)
 }
+
+var _ usecase.Analysis = (*AnalysisService)(nil)

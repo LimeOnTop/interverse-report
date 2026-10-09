@@ -11,7 +11,6 @@ import (
 	pb "github.com/LimeOnTop/interverse-contracts/report/gen"
 	"github.com/LimeOnTop/interverse-report/internal/apperr"
 	"github.com/LimeOnTop/interverse-report/internal/entity"
-	"github.com/LimeOnTop/interverse-report/internal/service"
 	"github.com/LimeOnTop/interverse-report/internal/usecase"
 	"google.golang.org/grpc/metadata"
 )
@@ -32,10 +31,10 @@ func fullAnalysisRequested(ctx context.Context) bool {
 type ReportController struct {
 	pb.UnimplementedReportServiceServer
 	report   usecase.Report
-	analysis *service.AnalysisService
+	analysis usecase.Analysis
 }
 
-func NewReportController(report usecase.Report, analysis *service.AnalysisService) *ReportController {
+func NewReportController(report usecase.Report, analysis usecase.Analysis) *ReportController {
 	return &ReportController{
 		report:   report,
 		analysis: analysis,
@@ -44,6 +43,9 @@ func NewReportController(report usecase.Report, analysis *service.AnalysisServic
 
 func (c *ReportController) CreateReport(ctx context.Context, req *pb.CreateReportRequest) (*pb.CreateReportResponse, error) {
 	userID, err := strconv.ParseInt(req.GetUserId(), 10, 64)
+	if err != nil || userID <= 0 {
+		return &pb.CreateReportResponse{Response: &pb.Response{Success: false, Error: "invalid user id"}}, nil
+	}
 	created, err := c.report.Create(ctx, entity.Report{
 		InterviewID:         req.InterviewId,
 		UserID:              userID,
@@ -88,9 +90,9 @@ func (c *ReportController) GenerateReport(ctx context.Context, req *pb.GenerateR
 		}, nil
 	}
 
-	answers := make([]service.AnswerInput, 0, len(req.GetAnswers()))
+	answers := make([]usecase.AnswerInput, 0, len(req.GetAnswers()))
 	for _, answer := range req.GetAnswers() {
-		input := service.AnswerInput{
+		input := usecase.AnswerInput{
 			StepID:     answer.GetStepId(),
 			QuestionID: answer.GetQuestionId(),
 			ItemType:   answer.GetItemType(),

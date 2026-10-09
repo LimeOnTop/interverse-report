@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/LimeOnTop/interverse-report/internal/client"
+	"github.com/LimeOnTop/interverse-report/internal/usecase"
 )
 
 // analysisModeBasic marks reports built without the LLM (Basic plan).
@@ -19,10 +19,10 @@ var (
 // basicAnalysis scores a session without the LLM: theory from MCQ accuracy,
 // tasks by how much of the reference solution the answer covers.
 func basicAnalysis(
-	interview client.InterviewSummary,
+	interview usecase.InterviewSummary,
 	reviews []answerReviewItem,
 	mcqCorrect, mcqTotal int,
-) client.GeminiAnalysis {
+) usecase.GeminiAnalysis {
 	taskTotal, taskSum, solved := 0, 0, 0
 	for _, item := range reviews {
 		if item.ItemType != "task" {
@@ -42,7 +42,7 @@ func basicAnalysis(
 	}
 
 	summary := basicSummary(interview.Level, mcqCorrect, mcqTotal, solved, taskTotal, percent(mcqCorrect, mcqTotal), codingScore)
-	return client.GeminiAnalysis{
+	return usecase.GeminiAnalysis{
 		AlgorithmScore: percent(mcqCorrect, mcqTotal),
 		CodingScore:    codingScore,
 		Comments:       summary,

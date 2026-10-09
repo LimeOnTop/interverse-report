@@ -169,8 +169,8 @@ func (r *OutboxRepository) Requeue(ctx context.Context, id int64, lastError stri
 	return nil
 }
 
-func (r *OutboxRepository) querier(ctx context.Context) usecase.DBTX {
-	return usecase.DBTXFromContext(ctx, r.db)
+func (r *OutboxRepository) querier(ctx context.Context) DBTX {
+	return DBTXFromContext(ctx, r.db)
 }
 
 func scanOutboxMessage(row *sql.Row) (entity.OutboxMessage, error) {

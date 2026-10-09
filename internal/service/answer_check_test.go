@@ -3,11 +3,11 @@ package service
 import (
 	"testing"
 
-	"github.com/LimeOnTop/interverse-report/internal/client"
+	"github.com/LimeOnTop/interverse-report/internal/usecase"
 )
 
 func TestIsSelectedOptionCorrectMatchesByTextAfterShuffle(t *testing.T) {
-	bank := []client.QuestionOption{
+	bank := []usecase.QuestionOption{
 		{Text: "right", IsCorrect: true},
 		{Text: "wrong 1"},
 		{Text: "wrong 2"},
@@ -26,7 +26,7 @@ func TestIsSelectedOptionCorrectMatchesByTextAfterShuffle(t *testing.T) {
 }
 
 func TestIsSelectedOptionCorrectLegacySessionWithoutOptions(t *testing.T) {
-	bank := []client.QuestionOption{{Text: "right", IsCorrect: true}, {Text: "wrong"}}
+	bank := []usecase.QuestionOption{{Text: "right", IsCorrect: true}, {Text: "wrong"}}
 	if !isSelectedOptionCorrect(nil, bank, 0) || isSelectedOptionCorrect(nil, bank, 1) {
 		t.Fatal("legacy sessions fall back to bank order")
 	}
