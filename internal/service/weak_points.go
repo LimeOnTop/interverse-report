@@ -155,38 +155,38 @@ func habrSearchURL(topic string) string {
 	return "https://habr.com/ru/search/?q=" + url.QueryEscape(topic) + "&target_type=posts&order=relevance"
 }
 
-const weakPointsSystemPrompt = "You are a senior technical interviewer and mentor. Return ONLY valid JSON matching the schema requested by the user."
+const weakPointsSystemPrompt = usecase.ReportCoachingInstructions
 
 func buildWeakPointsPrompt(interview usecase.InterviewSummary, items []answerReviewItem) string {
 	type promptItem struct {
-		ID              string   `json:"id"`
-		Type            string   `json:"type"`
-		Technology      string   `json:"technology,omitempty"`
-		Question        string   `json:"question"`
-		Options         []string `json:"options,omitempty"`
-		CandidateAnswer string   `json:"candidate_answer"`
-		CorrectAnswer   string   `json:"correct_answer"`
+		ID            string   `json:"id"`
+		Type          string   `json:"type"`
+		Technology    string   `json:"technology,omitempty"`
+		Question      string   `json:"question"`
+		Options       []string `json:"options,omitempty"`
+		UserAnswer    string   `json:"user_answer"`
+		CorrectAnswer string   `json:"correct_answer"`
 	}
 
 	payload := make([]promptItem, 0, len(items))
 	for _, item := range items {
 		payload = append(payload, promptItem{
-			ID:              item.StepID,
-			Type:            item.ItemType,
-			Technology:      item.Technology,
-			Question:        truncateRunes(item.Prompt, 1500),
-			Options:         item.Options,
-			CandidateAnswer: truncateRunes(item.UserAnswer, 2000),
-			CorrectAnswer:   truncateRunes(item.CorrectAnswer, 2000),
+			ID:            item.StepID,
+			Type:          item.ItemType,
+			Technology:    item.Technology,
+			Question:      truncateRunes(item.Prompt, 1500),
+			Options:       item.Options,
+			UserAnswer:    truncateRunes(item.UserAnswer, 2000),
+			CorrectAnswer: truncateRunes(item.CorrectAnswer, 2000),
 		})
 	}
 	itemsJSON, _ := json.Marshal(payload)
 
-	return fmt.Sprintf(`A candidate finished a %s training (level %s). Below are questions they answered wrong and practical tasks they solved.
+	return fmt.Sprintf(`The user completed a %s training (difficulty %s). Below are wrong theory answers and submitted practical solutions.
 
 For every item:
-- "explanation": 2-4 sentences in Russian that explain why the correct answer is right and, if the candidate answered, what is wrong in their answer. Plain text, no markdown headings; short inline code only if essential.
-- "is_weak": for "task" items decide whether the candidate's solution correctly solves the task compared with the reference (false = solved, true = not solved or incomplete). For "question" items always true.
+- "explanation": 2-4 sentences in Russian that explain why the correct answer is right and, if the user answered, what needs correcting in their answer; address the user with \"ты\" and give one concrete improvement without labeling the person. Plain text, no markdown headings; short inline code only if essential.
+- "is_weak": for "task" items decide whether the user's solution correctly solves the task compared with the reference (false = solved, true = not solved or incomplete). For "question" items always true.
 - "topic": a 2-5 word search query naming the concept to study, the way Russian IT articles name it (for example "замыкания JavaScript", "индексы PostgreSQL", "горутины и каналы Go"). Never output URLs.
 
 Return ONLY JSON in this schema:

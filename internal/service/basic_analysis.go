@@ -93,50 +93,45 @@ func tokenSet(text string) map[string]struct{} {
 	return set
 }
 
-func basicSummary(level string, mcqCorrect, mcqTotal, solved, taskTotal, theory, coding int) string {
-	sections := make([]int, 0, 2)
+func basicSummary(_ string, mcqCorrect, mcqTotal, solved, taskTotal, theory, coding int) string {
+	summary := personalReportSummary(theory, coding, mcqTotal > 0, taskTotal > 0)
 	if mcqTotal > 0 {
-		sections = append(sections, theory)
+		summary += fmt.Sprintf(" Верных ответов: %d из %d.", mcqCorrect, mcqTotal)
 	}
 	if taskTotal > 0 {
-		sections = append(sections, coding)
+		summary += fmt.Sprintf(" Решённых задач: %d из %d.", solved, taskTotal)
 	}
-	overall := 0
-	for _, score := range sections {
-		overall += score
-	}
-	if len(sections) > 0 {
-		overall /= len(sections)
-	}
+	return summary
+}
 
-	levelName := strings.TrimSpace(level)
-	if levelName == "" {
-		levelName = "выбранного"
-	} else {
-		levelName = capitalize(levelName)
-	}
-
-	var verdict string
+func personalReportSummary(theory, coding int, hasTheory, hasTasks bool) string {
 	switch {
-	case overall >= 80:
-		verdict = fmt.Sprintf("Уровень %s подтверждён: результат уверенный.", levelName)
-	case overall >= passScoreThreshold:
-		verdict = fmt.Sprintf("Уровень %s почти достигнут: база есть, но остались пробелы.", levelName)
+	case hasTheory && hasTasks:
+		switch {
+		case theory >= 80 && coding >= 80:
+			return "Ты уверенно справляешься с теорией и практикой. Попробуй тренировку уровнем выше или выбери новую технологию."
+		case theory >= 60 && coding >= 60:
+			return "У тебя хорошая база в теории и практике. Разбери ошибки этой тренировки и повтори темы, в которых ещё есть сомнения."
+		case theory >= 60:
+			return "С теорией у тебя получается лучше, чем с практикой. Запусти тренировку в режиме «Много задач» (4–6) и разбирай решения шаг за шагом — это поможет закрепить знания в коде."
+		case coding >= 60:
+			return "С практическими задачами ты справляешься увереннее, чем с теорией. Выбери «Только теория» и повтори вопросы с ошибками, чтобы лучше объяснять свои решения."
+		default:
+			return "Пока есть трудности и в теории, и в практике. Начни с разбора ошибок, затем выбери тренировку с 1–3 задачами и постепенно увеличивай нагрузку."
+		}
+	case hasTheory:
+		if theory >= 60 {
+			return "С теоретической частью у тебя хороший результат. В этой тренировке не было задач, поэтому практику мы пока не оценивали. Добавь 1–3 задачи в следующую тренировку, чтобы проверить, как применяешь знания в коде."
+		}
+		return "Теорию стоит закрепить. Разбери вопросы с ошибками и попробуй ещё одну тренировку в режиме «Только теория». Практических задач здесь не было — эта часть ещё не оценивалась."
+	case hasTasks:
+		if coding >= 60 {
+			return "Ты хорошо справляешься с практическими задачами. Пройди тренировку с теоретическими вопросами, чтобы проверить и эту часть подготовки."
+		}
+		return "Практические задачи пока вызывают трудности. Начни с 1–3 задач, сверяй решения с разбором и повторяй их без подсказок."
 	default:
-		verdict = fmt.Sprintf("Уровень %s пока не достигнут: стоит подтянуть теорию и практику.", levelName)
+		return "В этой тренировке нет ответов для оценки. Запусти новую тренировку и ответь на вопросы, чтобы получить разбор."
 	}
-
-	details := make([]string, 0, 2)
-	if mcqTotal > 0 {
-		details = append(details, fmt.Sprintf("верных ответов %d из %d", mcqCorrect, mcqTotal))
-	}
-	if taskTotal > 0 {
-		details = append(details, fmt.Sprintf("задач решено %d из %d", solved, taskTotal))
-	}
-	if len(details) == 0 {
-		return verdict
-	}
-	return verdict + " " + capitalize(strings.Join(details, ", ")) + "."
 }
 
 func capitalize(text string) string {

@@ -234,7 +234,7 @@ func (s *AnalysisService) analyzeWithLLM(
 		verdictsCh <- explainWeakPoints(llmCtx, s.explainer, interview, candidates)
 	}()
 
-	prompt := buildAnalysisPrompt(interview, mcqSummary, mcqCorrect, mcqTotal, taskSummary, answeredTasks)
+	prompt := buildAnalysisPrompt(interview, mcqSummary, mcqCorrect, mcqTotal, taskSummary, answeredTasks, taskTotal)
 	analysis, err := s.geminiClient.Analyze(llmCtx, prompt)
 	if err != nil {
 		log.Printf("llm analysis failed: %v", err)
@@ -479,11 +479,11 @@ func buildAnalysisPrompt(
 	mcqSummary string,
 	mcqCorrect, mcqTotal int,
 	taskSummary string,
-	answeredTasks int,
+	answeredTasks, taskTotal int,
 ) string {
 	mcqPercent := percent(mcqCorrect, mcqTotal)
 
-	return fmt.Sprintf(`You are a senior technical interviewer evaluating a training session.
+	return usecase.ReportCoachingInstructions + "\n\n" + fmt.Sprintf(`Analyze the completed training session.
 
 Interview context:
 - Title: %s
@@ -494,7 +494,7 @@ Interview context:
 MCQ results (%d/%d correct, %d%%):
 %s
 
-Practical tasks (answered %d):
+Practical tasks (answered %d of %d):
 %s
 
 Return ONLY valid JSON with this exact schema:
@@ -504,11 +504,11 @@ Return ONLY valid JSON with this exact schema:
   "architecture_score": 0,
   "coding_score": 0,
   "soft_skills_score": 0,
-  "comments": "2-4 sentence overall verdict in Russian: level readiness and the main conclusion",
-  "summary_public": "1-2 sentences in Russian with a general verdict only (readiness for the level, overall impression). It MUST NOT name any topic, technology, concept, question or task, and must not hint at what exactly was wrong",
-  "strengths": "2-4 lines in Russian, each line starts with \"- \"",
-  "weaknesses": "2-4 lines in Russian, each line starts with \"- \": weak topics in general terms, without quoting the questions",
-  "recommendations": "3-5 lines in Russian, each line starts with \"- \": concrete topics and actions to study next"
+  "comments": "2-4 sentences addressed to the user: theory result, practical result only if tasks were present, and a realistic next training action",
+  "summary_public": "2-3 sentences addressed to the user: general theory/practice balance and a next training mode. It MUST NOT name any specific topic, technology, concept, question or task, or reveal specific mistakes",
+  "strengths": "2-4 concrete strengths addressed to the user, each line starts with \"- \"",
+  "weaknesses": "2-4 lines in Russian, each line starts with \"- \": areas to improve addressed to the user, supported by actual answers, without quoting the questions",
+  "recommendations": "3-5 lines addressed to the user, each line starts with \"- \": prioritized actions, why each helps, and a suitable next training mode"
 }
 
 Scoring rules:
@@ -531,6 +531,7 @@ Scoring rules:
 		mcqPercent,
 		mcqSummary,
 		answeredTasks,
+		taskTotal,
 		taskSummary,
 		passScoreThreshold,
 		passScoreThreshold,
@@ -587,10 +588,21 @@ func fallbackAnalysis(mcqCorrect, mcqTotal int, taskSummary string, answeredTask
 		SoftSkillsScore:   0,
 		Comments:          "Автоматическая оценка на основе результатов теста. AI-анализ временно недоступен.",
 		SummaryPublic:     "Автоматическая оценка на основе результатов теста. AI-анализ временно недоступен.",
-		Strengths:         "Ответы на теоретические вопросы зафиксированы.",
-		Weaknesses:        "Требуется ручная проверка практических задач.",
-		Recommendations:   "Повторите темы с ошибками и пересдайте тренировку.",
+		Strengths:         "Твои ответы на теоретические вопросы сохранены.",
+		Weaknesses:        "Практические решения пока не проверены.",
+		Recommendations:   "Разбери вопросы с ошибками и попробуй ещё одну тренировку.",
 	}
+	raw.Comments = fmt.Sprintf("Твой результат по теории — %d из %d верных ответов. AI-анализ временно недоступен.", mcqCorrect, mcqTotal)
+	if mcqTotal == 0 {
+		raw.Comments = "В этой тренировке не было теоретических вопросов. AI-анализ временно недоступен."
+	}
+	if taskTotal == 0 {
+		raw.Comments += " Практических задач здесь не было — эту часть мы пока не оценивали."
+		raw.Weaknesses = ""
+	} else {
+		raw.Comments += " Практические решения пока не проверены."
+	}
+	raw.SummaryPublic = raw.Comments
 	_ = taskSummary
 
 	return finalizeAnalysisScores(raw, mcqTotal, answeredTasks, taskTotal).Analysis

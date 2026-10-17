@@ -10,15 +10,27 @@ import (
 
 type ReportService struct {
 	repository usecase.ReportRepository
+	interviews usecase.InterviewReader
 }
 
-func NewReportService(repository usecase.ReportRepository) *ReportService {
-	return &ReportService{repository: repository}
+func NewReportService(repository usecase.ReportRepository, readers ...usecase.InterviewReader) *ReportService {
+	var reader usecase.InterviewReader
+	if len(readers) > 0 {
+		reader = readers[0]
+	}
+	return &ReportService{repository: repository, interviews: reader}
 }
 
 var _ usecase.Report = (*ReportService)(nil)
 
 func (s *ReportService) Create(ctx context.Context, report entity.Report) (usecase.ReportDTO, error) {
+	if s.interviews == nil {
+		return usecase.ReportDTO{}, fmt.Errorf("interview authorization unavailable")
+	}
+	interview, _, _, err := s.interviews.GetSessionContent(ctx, report.InterviewID, report.UserID)
+	if err != nil || interview.UserID != report.UserID {
+		return usecase.ReportDTO{}, fmt.Errorf("create report: forbidden")
+	}
 	created, err := s.repository.Create(ctx, report)
 	if err != nil {
 		return usecase.ReportDTO{}, fmt.Errorf("create report: %w", err)

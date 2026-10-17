@@ -54,12 +54,13 @@ func main() {
 
 	reportRepository := repository.NewReportRepository(db)
 	outboxRepository := repository.NewOutboxRepository(db)
-	reportService := service.NewReportService(reportRepository)
 
 	interviewClient, err := client.NewInterviewClient(cfg.InterviewServiceURL)
 	if err != nil {
 		panic("interview client: " + err.Error())
 	}
+
+	reportService := service.NewReportService(reportRepository, interviewClient)
 
 	questionClient, err := client.NewQuestionClient(cfg.QuestionServiceURL)
 	if err != nil {

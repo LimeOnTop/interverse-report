@@ -34,7 +34,7 @@ func TestBasicAnalysisHasNoTopics(t *testing.T) {
 	if analysis.AlgorithmScore != 50 || analysis.CodingScore != 0 {
 		t.Fatalf("scores = %d/%d, want 50/0", analysis.AlgorithmScore, analysis.CodingScore)
 	}
-	if analysis.SummaryPublic != analysis.Comments || !strings.Contains(analysis.Comments, "Junior") {
+	if analysis.SummaryPublic != analysis.Comments || !strings.Contains(analysis.Comments, "Начни с разбора ошибок") {
 		t.Fatalf("unexpected summary: %q", analysis.Comments)
 	}
 	if strings.Contains(analysis.Comments, "горутин") || strings.Contains(analysis.Comments, "AI-анализ") {

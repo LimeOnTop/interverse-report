@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/LimeOnTop/interverse-report/internal/usecase"
 )
 
 const (
@@ -50,7 +52,7 @@ func (c *DeepSeekClient) Analyze(ctx context.Context, prompt string) (GeminiAnal
 	// Single attempt here — multi-attempt + Gemini failover is owned by FallbackAnalyzer.
 	text, err := c.CompleteJSON(
 		ctx,
-		"You are a senior technical interviewer. Return ONLY valid JSON matching the schema requested by the user. Include the word JSON in the response schema.",
+		usecase.ReportCoachingInstructions,
 		prompt,
 	)
 	if err != nil {
