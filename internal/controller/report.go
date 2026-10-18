@@ -98,7 +98,7 @@ func (c *ReportController) GenerateReport(ctx context.Context, req *pb.GenerateR
 			ItemType:   answer.GetItemType(),
 			TaskAnswer: answer.GetTaskAnswer(),
 		}
-		if answer.GetItemType() == "question" {
+		if answer.GetItemType() == "question" && answer.SelectedOptionIndex != nil {
 			selected := answer.GetSelectedOptionIndex()
 			input.SelectedOptionIndex = &selected
 		}

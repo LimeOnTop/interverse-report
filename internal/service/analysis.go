@@ -408,6 +408,10 @@ func (s *AnalysisService) buildAnswerReviews(
 			isCorrect = &ok
 		}
 
+		if selectedIndex == nil {
+			wrong := false
+			isCorrect = &wrong
+		}
 		if userAnswer == "" {
 			userAnswer = "Нет ответа"
 		}

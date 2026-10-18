@@ -29,3 +29,25 @@ func TestCreateReportRejectsInvalidUserBeforeUsecase(t *testing.T) {
 		})
 	}
 }
+
+type answerCapture struct{ answers []usecase.AnswerInput }
+
+func (s *answerCapture) Generate(_ context.Context, _ string, _ int64, a []usecase.AnswerInput, _ bool) (usecase.ReportDTO, usecase.AnalysisScoresDTO, error) {
+	s.answers = a
+	return usecase.ReportDTO{}, usecase.AnalysisScoresDTO{}, nil
+}
+func TestGeneratePreservesSkippedAnswer(t *testing.T) {
+	zero := int32(0)
+	spy := &answerCapture{}
+	c := NewReportController(nil, spy)
+	_, err := c.GenerateReport(context.Background(), &pb.GenerateReportRequest{UserId: "1", Answers: []*pb.SessionAnswerInput{{ItemType: "question", StepId: "skip"}, {ItemType: "question", StepId: "first", SelectedOptionIndex: &zero}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if spy.answers[0].SelectedOptionIndex != nil {
+		t.Fatal("skip converted to first option")
+	}
+	if spy.answers[1].SelectedOptionIndex == nil || *spy.answers[1].SelectedOptionIndex != 0 {
+		t.Fatal("first option dropped")
+	}
+}
